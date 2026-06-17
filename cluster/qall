@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# All jobs on defq, sorted by user
+# Usage: qall
+
+B='\033[1m' N='\033[0m'
+
+echo -e "${B}=== defq partition ===${N}"
+squeue -p defq --sort=u,T,-i \
+  --Format="JobID:10,UserName:14,Name:28,State:12,TimeUsed:12,NumNodes:5,NumCPUs:5,tres-alloc:22"
+
+echo ""
+echo -e "${B}Summary:${N}"
+printf "  %-14s %6s %6s %6s %6s\n" "USER" "JOBS" "GPUS" "CPUS" "NODES"
+squeue -p defq --noheader --format="%u %C %D %b" | \
+  awk '
+  {
+    u=$1; cpus=$2; nodes=$3; tres=$4
+    jobs[u]++; c[u]+=cpus; n[u]+=nodes
+    match(tres, /gres\/gpu:([0-9]+)/, a); g[u]+=a[1]+0
+  }
+  END { for (u in jobs) printf "  %-14s %6d %6d %6d %6d\n", u, jobs[u], g[u], c[u], n[u] }
+  ' | sort -k3 -rn

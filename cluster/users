@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# GPU/CPU usage per user on defq
+# Usage: users
+
+B='\033[1m' N='\033[0m'
+
+echo -e "${B}=== Resource usage per user — defq ===${N}"
+printf "${B}%-16s %6s %6s %6s %6s${N}\n" "USER" "JOBS" "GPUS" "CPUS" "NODES"
+
+squeue -p defq --noheader --format="%u %C %D %b" | \
+awk '
+{
+  u=$1; cpus=$2; nodes=$3; tres=$4
+  jobs[u]++; c[u]+=cpus; n[u]+=nodes
+  match(tres, /gres\/gpu:([0-9]+)/, a)
+  g[u]+=a[1]+0
+}
+END {
+  for (u in jobs)
+    printf "%-16s %6d %6d %6d %6d\n", u, jobs[u], g[u], c[u], n[u]
+}' | sort -k3 -rn
+
+echo ""
+echo -e "${B}Running jobs on defq:${N}"
+squeue -p defq --noheader --format="%T" | sort | uniq -c | awk '{printf "  %s: %d\n",$2,$1}'

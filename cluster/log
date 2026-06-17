@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# View or tail the stdout log for a SLURM job
+# Usage: log [JOBID] [-f]   (no JOBID → most recent job; -f → tail -f)
+
+JOBID="" FOLLOW=false
+for arg in "$@"; do
+  [[ "$arg" == "-f" ]] && FOLLOW=true || JOBID="$arg"
+done
+
+# Find most recent job if no JOBID given
+if [[ -z "$JOBID" ]]; then
+  JOBID=$(squeue -u "$USER" --noheader --format="%i" --sort=-i | head -1)
+  [[ -z "$JOBID" ]] && JOBID=$(sacct -u "$USER" --noheader -X --format="JobID" | tail -1 | tr -d ' ')
+fi
+
+[[ -z "$JOBID" ]] && { echo "No jobs found."; exit 1; }
+
+# Get log path from scontrol (running) or sacct (completed)
+LOGFILE=$(scontrol show job "$JOBID" 2>/dev/null | grep -oP 'StdOut=\K\S+')
+[[ -z "$LOGFILE" ]] && \
+  LOGFILE=$(sacct -j "$JOBID" --noheader -X --format="StdOut" 2>/dev/null | tr -d ' ')
+
+# submitit names logs as %j_%t_log.out — resolve %j and %t
+LOGFILE=${LOGFILE//%j/$JOBID}
+LOGFILE=${LOGFILE//%t/0}
+
+[[ -z "$LOGFILE" || ! -f "$LOGFILE" ]] && { echo "No log file found for job $JOBID (tried: $LOGFILE)"; exit 1; }
+
+ERRFILE="${LOGFILE%.out}.err"
+echo "=== Job $JOBID | $LOGFILE ==="
+if [[ ! -s "$LOGFILE" && -s "$ERRFILE" ]]; then
+  echo "=== (stdout empty, showing stderr: $ERRFILE) ==="
+  $FOLLOW && tail -f "$ERRFILE" || cat "$ERRFILE"
+else
+  $FOLLOW && tail -f "$LOGFILE" || cat "$LOGFILE"
+fi

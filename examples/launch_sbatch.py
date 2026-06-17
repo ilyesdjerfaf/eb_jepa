@@ -20,6 +20,10 @@ python -m examples.launch_sbatch --example ac_video_jepa --sweep my_experiment -
 # Override config values:
 python -m examples.launch_sbatch --example ac_video_jepa --optim.lr 0.0005
 
+# Override cluster/SLURM resources (defaults target this cluster; also settable via
+# EBJEPA_SLURM_PARTITION / _ACCOUNT / _CPUS / _TIME_MIN / _GPUS env vars):
+python -m examples.launch_sbatch --example ac_video_jepa --partition gpu --account my_acct --cpus-per-task 8 --time-min 120
+
 SEED AVERAGING IN WANDB UI:
 ---------------------------
 Runs with the same hyperparameters but different seeds share the same wandb run name.
@@ -67,15 +71,18 @@ from eb_jepa.training_utils import (
     load_config,
 )
 
-# Default SLURM parameters
+# Default SLURM parameters.
+# Every value below is cluster-specific; each can be overridden without editing this file,
+# either via the env var shown or the matching CLI flag (--partition/--account/--cpus-per-task/
+# --time-min/--gpus-per-node), so the launcher runs unchanged on other clusters/allocations.
 SLURM_DEFAULTS = {
-    "mem_per_gpu": "210G",
-    "cpus_per_task": 16,
-    "timeout_min": 24 * 60,
-    "partition": "learn",
-    "gpus_per_node": 1,
-    "qos": "lowest",
-    "account": "fair_amaia_cw_video",
+    "mem_per_gpu": os.environ.get("EBJEPA_SLURM_MEM", "210G"),
+    "cpus_per_task": int(os.environ.get("EBJEPA_SLURM_CPUS", 16)),
+    "timeout_min": int(os.environ.get("EBJEPA_SLURM_TIME_MIN", 24 * 60)),
+    "partition": os.environ.get("EBJEPA_SLURM_PARTITION", "learn"),
+    "gpus_per_node": int(os.environ.get("EBJEPA_SLURM_GPUS", 1)),
+    "qos": os.environ.get("EBJEPA_SLURM_QOS", "lowest"),
+    "account": os.environ.get("EBJEPA_SLURM_ACCOUNT", "fair_amaia_cw_video"),
 }
 
 
@@ -446,6 +453,14 @@ if __name__ == "__main__":
         help="Launch a single job (uses dev_YYYYMMDD_HHMM folder)",
     )
 
+    # Cluster / SLURM overrides (default to the values in SLURM_DEFAULTS;
+    # can also be set via EBJEPA_SLURM_* env vars)
+    parser.add_argument("--partition", type=str, help="SLURM partition (default: learn)")
+    parser.add_argument("--account", type=str, help="SLURM account (default: fair_amaia_cw_video)")
+    parser.add_argument("--cpus-per-task", type=int, help="CPUs per task (default: 16)")
+    parser.add_argument("--time-min", type=int, help="Job time limit in minutes (default: 1440)")
+    parser.add_argument("--gpus-per-node", type=int, help="GPUs per node (default: 1)")
+
     # Common overrides
     parser.add_argument("--optim.lr", type=float)
     parser.add_argument("--meta.seed", type=int)
@@ -458,6 +473,18 @@ if __name__ == "__main__":
 
     # Use parse_known_args to allow dynamic overrides for any config key
     args, unknown = parser.parse_known_args()
+
+    # Apply cluster/SLURM CLI overrides onto the defaults (env vars already applied above).
+    for _cli_key, _slurm_key in (
+        ("partition", "partition"),
+        ("account", "account"),
+        ("cpus_per_task", "cpus_per_task"),
+        ("time_min", "timeout_min"),
+        ("gpus_per_node", "gpus_per_node"),
+    ):
+        _val = getattr(args, _cli_key)
+        if _val is not None:
+            SLURM_DEFAULTS[_slurm_key] = _val
 
     example_name = args.example
     example_config = EXAMPLE_CONFIGS[example_name]
@@ -487,6 +514,11 @@ if __name__ == "__main__":
         "sweep_method",
         "full_sweep",
         "single",
+        "partition",
+        "account",
+        "cpus_per_task",
+        "time_min",
+        "gpus_per_node",
     }
     overrides = {
         k: v for k, v in vars(args).items() if v is not None and k not in excluded_keys
