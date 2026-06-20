@@ -1,15 +1,16 @@
 # ============================================================
-# Sanity check — 10 epochs with pred_loss fix
+# Large model — doubled expressivity (~5.7M params vs ~2.5M)
 # ============================================================
-# Quick run to verify pred_loss decreases, then run full eval.
+# Same setup as default but with wider + deeper DiffusionNet.
+# Purpose: test if more capacity improves representation quality.
 #
 # Usage:
 #   uv run python -m examples.mesh_jepa.run_experiment \
-#       --config examples/mesh_jepa/experiments/sanity_10ep.yaml all
+#       --config examples/mesh_jepa/experiments/large.yaml all
 # ============================================================
 
 experiment:
-  name: "sanity_10ep"
+  name: "large_model"
   seed: 42
   device: auto
   feature_types: [hks, xyz]
@@ -29,31 +30,35 @@ training:
   train_subjects: [50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025]
   test_subjects: [50026, 50027]
 
-  width: 256
-  depth: 6
-  henc: 256
+  # Doubled DiffusionNet encoder (384 width, 8 blocks)
+  width: 384                    # 256 → 384 (+50% channels)
+  depth: 8                      # 6 → 8 (+33% blocks)
+  henc: 256                     # Keep latent dim same (fair comparison)
   n_eigen: 128
   dropout: true
 
+  # Predictor (same as default — fair comparison)
   hpre: 256
   predictor_layers: 2
   steps: 4
   grad_clip: 2.0
 
+  # Loss (same as default)
   std_coeff: 10.0
   cov_coeff: 100.0
   proj_spec: "256-1024-1024"
 
-  epochs: 10
+  # Optimizer
+  epochs: 60
   lr: 1.0e-3
   weight_decay: 1.0e-5
 
   log_wandb: false
   log_every: 1
-  save_every: 5
+  save_every: 10
 
 eval:
   batch_size: 16
   num_workers: 0
-  n_inference_clips: 2
+  n_inference_clips: 3
   max_horizon: 15

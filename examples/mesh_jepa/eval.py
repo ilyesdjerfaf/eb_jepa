@@ -791,8 +791,8 @@ def plot_collapse_dashboard(collapse, diffusion_times, band_energy, output_dir):
 
 
 def plot_training_curves(history, output_dir):
-    """Plot publication-quality training loss curves."""
-    epochs = [h["epoch"] for h in history]
+    """Plot publication-quality training loss curves (per step)."""
+    steps = [h.get("step", i) for i, h in enumerate(history)]
     total_loss = [h["train/loss"] for h in history]
     pred_loss = [h["train/pred_loss"] for h in history]
     vc_loss = [h["train/vc_loss"] for h in history]
@@ -806,48 +806,48 @@ def plot_training_curves(history, output_dir):
     fig, axes = plt.subplots(2, 2, figsize=(12, 8))
 
     # Total loss
-    axes[0, 0].plot(epochs, total_loss, "k-", linewidth=2, label="Total")
+    axes[0, 0].plot(steps, total_loss, "k-", linewidth=1, alpha=0.7, label="Total")
     axes[0, 0].plot(
-        epochs, pred_loss, "-", color="coral", linewidth=1.5, label="Prediction"
+        steps, pred_loss, "-", color="coral", linewidth=1, alpha=0.7, label="Prediction"
     )
     axes[0, 0].plot(
-        epochs, vc_loss, "-", color="steelblue", linewidth=1.5, label="VICReg"
+        steps, vc_loss, "-", color="steelblue", linewidth=1, alpha=0.7, label="VICReg"
     )
-    axes[0, 0].set_xlabel("Epoch")
+    axes[0, 0].set_xlabel("Step")
     axes[0, 0].set_ylabel("Loss")
     axes[0, 0].set_title("Training Loss")
     axes[0, 0].legend()
     axes[0, 0].grid(True, alpha=0.3)
 
     # Prediction loss (zoomed)
-    axes[0, 1].plot(epochs, pred_loss, "o-", color="coral", markersize=3, linewidth=1.5)
-    axes[0, 1].set_xlabel("Epoch")
+    axes[0, 1].plot(steps, pred_loss, "-", color="coral", linewidth=1, alpha=0.7)
+    axes[0, 1].set_xlabel("Step")
     axes[0, 1].set_ylabel("Prediction Loss")
-    axes[0, 1].set_title("Prediction Loss (should decrease, stay > 0)")
+    axes[0, 1].set_title("Prediction Loss (should decrease)")
     axes[0, 1].grid(True, alpha=0.3)
 
     # VICReg breakdown
     if has_breakdown:
         axes[1, 0].plot(
-            epochs, std_loss, "-", color="#2196F3", linewidth=1.5, label="Std loss"
+            steps, std_loss, "-", color="#2196F3", linewidth=1, alpha=0.7, label="Std loss"
         )
         axes[1, 0].plot(
-            epochs, cov_loss, "-", color="#FF9800", linewidth=1.5, label="Cov loss"
+            steps, cov_loss, "-", color="#FF9800", linewidth=1, alpha=0.7, label="Cov loss"
         )
-        axes[1, 0].set_xlabel("Epoch")
+        axes[1, 0].set_xlabel("Step")
         axes[1, 0].set_ylabel("Loss")
         axes[1, 0].set_title("VICReg Components (std + cov)")
         axes[1, 0].legend()
     else:
-        axes[1, 0].plot(epochs, vc_loss, "-", color="steelblue", linewidth=1.5)
-        axes[1, 0].set_xlabel("Epoch")
+        axes[1, 0].plot(steps, vc_loss, "-", color="steelblue", linewidth=1, alpha=0.7)
+        axes[1, 0].set_xlabel("Step")
         axes[1, 0].set_ylabel("VICReg Loss")
         axes[1, 0].set_title("VICReg Loss")
     axes[1, 0].grid(True, alpha=0.3)
 
     # Learning rate
-    axes[1, 1].plot(epochs, lr, "-", color="green", linewidth=1.5)
-    axes[1, 1].set_xlabel("Epoch")
+    axes[1, 1].plot(steps, lr, "-", color="green", linewidth=1.5)
+    axes[1, 1].set_xlabel("Step")
     axes[1, 1].set_ylabel("Learning Rate")
     axes[1, 1].set_title("Learning Rate Schedule")
     axes[1, 1].grid(True, alpha=0.3)

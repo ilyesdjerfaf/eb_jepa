@@ -202,30 +202,31 @@ def run(
             )
             global_step += 1
 
-        scheduler.step()
-        epoch_time = time.time() - epoch_start
-        epoch_times.append(epoch_time)
-
-        # Logging
-        if epoch % cfg.logging.get("log_every", 1) == 0:
-            metrics = {
+            # Per-step logging
+            step_metrics = {
+                "step": global_step,
                 "epoch": epoch,
                 "train/loss": loss.item(),
                 "train/pred_loss": ploss.item(),
                 "train/vc_loss": rloss.item(),
                 "train/lr": scheduler.get_last_lr()[0],
-                "train/epoch_time_s": epoch_time,
             }
             for k, v in rloss_dict.items():
-                metrics[f"train/{k}"] = float(v)
+                step_metrics[f"train/{k}"] = float(v)
 
-            history.append(metrics)
+            history.append(step_metrics)
 
             if wandb_run:
                 import wandb
 
-                wandb.log(metrics, step=global_step)
+                wandb.log(step_metrics, step=global_step)
 
+        scheduler.step()
+        epoch_time = time.time() - epoch_start
+        epoch_times.append(epoch_time)
+
+        # Per-epoch logging to console
+        if epoch % cfg.logging.get("log_every", 1) == 0:
             log_epoch(
                 epoch,
                 {"loss": loss.item(), "pred": ploss.item(), "vc": rloss.item()},
