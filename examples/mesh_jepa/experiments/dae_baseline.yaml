@@ -1,0 +1,79 @@
+# ============================================================
+# DAE Baseline — predict in feature space, not latent space
+# ============================================================
+# Same encoder (DiffusionNet 384x8) + GRU temporal prediction.
+# Key difference: decoder reconstructs HKS/XYZ instead of
+# predicting in abstract latent space. No VICReg needed.
+# Purpose: demonstrate that JEPA's abstract prediction objective
+# learns better representations than reconstruction.
+#
+# Total params: ~5.55M (vs JEPA large ~5.7M — fair comparison)
+#   Encoder: 4.84M (identical)
+#   Predictor: 0.46M (1-layer GRU — budget goes to decoder)
+#   Decoder: 0.25M (broadcast + per-vertex MLP)
+#
+# Usage:
+#   uv run python -m examples.mesh_jepa.main_dae \
+#       --fname examples/mesh_jepa/experiments/dae_baseline.yaml
+# ============================================================
+
+experiment:
+  name: "dae_baseline"
+  seed: 42
+  device: auto
+  feature_types: [hks]
+
+preprocessing:
+  raw_data_dir: /lustre/work/vivatech-discretizers/shared/dfaust/raw
+  processed_dir: /lustre/work/vivatech-discretizers/shared/dfaust/processed
+  actions: [jumping_jacks, punching, running_on_spot]
+  n_eigen: 128
+  n_hks: 16
+  temporal_stride: 4
+
+training:
+  seq_len: 16
+  batch_size: 16
+  num_workers: 0
+  train_subjects: [50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025]
+  test_subjects: [50026, 50027]
+
+  # Flag for run_experiment.py to use main_dae.py
+  encoder_type: dae
+
+  # Encoder — same DiffusionNet as JEPA large
+  width: 384
+  depth: 8
+  henc: 256
+  n_eigen: 128
+  dropout: true
+
+  # Predictor — 1-layer GRU (budget shifted to decoder)
+  hpre: 256
+  predictor_layers: 1
+  steps: 4
+  grad_clip: 2.0
+
+  # Decoder — broadcast + per-vertex MLP
+  decoder_width: 384
+  decoder_depth: 2
+
+  # Loss (VICReg coeffs kept for checkpoint compatibility but unused in training)
+  std_coeff: 10.0
+  cov_coeff: 100.0
+  proj_spec: "256-1024-1024"
+
+  # Optimizer
+  epochs: 25
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+
+  log_wandb: false
+  log_every: 1
+  save_every: 100
+
+eval:
+  batch_size: 16
+  num_workers: 0
+  n_inference_clips: 3
+  max_horizon: 15

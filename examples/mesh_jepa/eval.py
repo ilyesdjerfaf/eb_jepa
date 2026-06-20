@@ -829,10 +829,22 @@ def plot_training_curves(history, output_dir):
     # VICReg breakdown
     if has_breakdown:
         axes[1, 0].plot(
-            steps, std_loss, "-", color="#2196F3", linewidth=1, alpha=0.7, label="Std loss"
+            steps,
+            std_loss,
+            "-",
+            color="#2196F3",
+            linewidth=1,
+            alpha=0.7,
+            label="Std loss",
         )
         axes[1, 0].plot(
-            steps, cov_loss, "-", color="#FF9800", linewidth=1, alpha=0.7, label="Cov loss"
+            steps,
+            cov_loss,
+            "-",
+            color="#FF9800",
+            linewidth=1,
+            alpha=0.7,
+            label="Cov loss",
         )
         axes[1, 0].set_xlabel("Step")
         axes[1, 0].set_ylabel("Loss")

@@ -218,10 +218,15 @@ def step_train(cfg, paths, feature_type, force=False):
     with open(tmp_cfg_path, "w") as f:
         yaml.dump(train_cfg, f, default_flow_style=False)
 
+    # Use DAE training script if encoder_type is "dae"
+    train_module = "examples.mesh_jepa.main"
+    if t.get("encoder_type") == "dae":
+        train_module = "examples.mesh_jepa.main_dae"
+
     cmd = [
         sys.executable,
         "-m",
-        "examples.mesh_jepa.main",
+        train_module,
         "--fname",
         str(tmp_cfg_path),
         "--folder",

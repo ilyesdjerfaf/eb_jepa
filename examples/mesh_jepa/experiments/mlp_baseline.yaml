@@ -57,7 +57,7 @@ training:
   proj_spec: "256-1024-1024"
 
   # Optimizer (same)
-  epochs: 60
+  epochs: 25
   lr: 1.0e-3
   weight_decay: 1.0e-5
 
