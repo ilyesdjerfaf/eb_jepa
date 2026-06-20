@@ -131,7 +131,7 @@ def run(
 
     projector = Projector(cfg.loss.proj_spec)
     regularizer = VCLoss(cfg.loss.std_coeff, cfg.loss.cov_coeff, proj=projector)
-    predcost = SquareLossSeq(projector)
+    predcost = SquareLossSeq(None)  # No projector — direct MSE in latent space
 
     jepa = JEPA(encoder, encoder, predictor, regularizer, predcost).to(device)
 
