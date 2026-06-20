@@ -1,0 +1,63 @@
+# ============================================================
+# Quick test — for jury / demo / verification
+# ============================================================
+# Runs the full pipeline (preprocess → train → eval) in a few minutes on CPU.
+# Proves that the code works end-to-end without needing a GPU or long training.
+#
+# Usage:
+#   uv run python -m examples.mesh_jepa.run_experiment \
+#       --config examples/mesh_jepa/experiments/quick_test.yaml all
+# ============================================================
+
+experiment:
+  name: "smoke_test_2"           # CHANGE THIS for each new experiment (must be unique)
+  seed: 42
+  device: auto
+  feature_types: [hks, xyz]
+
+preprocessing:
+  raw_data_dir: datasets/dfaust/raw
+  processed_dir: datasets/dfaust/processed  # Use existing preprocessed data (skip --preprocess)
+  #
+  # Available actions (DFAUST, 14 total):
+  #   chicken_wings, hips, jiggle_on_toes, jumping_jacks, knees,
+  #   light_hopping_loose, light_hopping_stiff, one_leg_jump,
+  #   one_leg_loose, punching, running_on_spot, shake_arms,
+  #   shake_hips, shake_shoulders
+  actions: [jumping_jacks, punching, running_on_spot]
+  n_eigen: 128
+  n_hks: 16
+  temporal_stride: 4
+
+training:
+  seq_len: 16
+  batch_size: 16
+  num_workers: 0
+  train_subjects: [50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025]
+  test_subjects: [50026, 50027]
+
+  width: 128
+  depth: 4
+  henc: 256
+  n_eigen: 128
+  hpre: 256
+  predictor_layers: 1
+  steps: 4
+
+  std_coeff: 10.0
+  cov_coeff: 100.0
+  proj_spec: "256-1024-1024"
+
+  epochs: 2  # Just 2 epochs for quick test
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+
+  log_wandb: false
+  log_every: 1
+  save_every: 10
+
+eval:
+  batch_size: 16
+  num_workers: 0
+  n_inference_clips: 2
+  max_horizon: 8

@@ -39,6 +39,10 @@ dependencies = [
     "omegaconf",
     "pyyaml",
     "ruamel.yaml",
+    "h5py",
+    "trimesh",
+    "robust-laplacian>=0.2.0",
+    "scipy>=1.11",
 ]
 requires-python = "==3.12.*"
 
@@ -50,6 +54,7 @@ torchvision = { index = "pytorch-cu128", marker = "platform_machine == 'aarch64'
 [[tool.uv.index]]
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [build-system]
 requires = ["setuptools>=61.0"]

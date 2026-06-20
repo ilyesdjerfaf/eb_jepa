@@ -1,0 +1,77 @@
+# ============================================================
+# Mesh JEPA — Full Experiment Configuration
+# ============================================================
+# This file defines the entire pipeline: preprocessing, training, evaluation.
+# One preprocessing run → two trainings (HKS + XYZ) → two evaluations.
+#
+# Usage:
+#   uv run python -m examples.mesh_jepa.run_experiment --config examples/mesh_jepa/experiments/default.yaml all
+#   uv run python -m examples.mesh_jepa.run_experiment --config examples/mesh_jepa/experiments/default.yaml preprocess
+#   uv run python -m examples.mesh_jepa.run_experiment --config examples/mesh_jepa/experiments/default.yaml train
+#   uv run python -m examples.mesh_jepa.run_experiment --config examples/mesh_jepa/experiments/default.yaml eval
+# ============================================================
+
+experiment:
+  name: "baseline_3actions"   # CHANGE THIS for each new experiment (must be unique)
+  seed: 42
+  device: auto
+  feature_types: [hks, xyz]   # Both trained from the same preprocessed data
+
+# ---- Preprocessing ----
+# Shared across both feature types (saves vertices + HKS)
+preprocessing:
+  raw_data_dir: datasets/dfaust/raw
+  # Output dir: datasets/dfaust/processed_{experiment.name}/
+  #
+  # Available actions (DFAUST, 14 total):
+  #   chicken_wings, hips, jiggle_on_toes, jumping_jacks, knees,
+  #   light_hopping_loose, light_hopping_stiff, one_leg_jump,
+  #   one_leg_loose, punching, running_on_spot, shake_arms,
+  #   shake_hips, shake_shoulders
+  actions: [jumping_jacks, punching, running_on_spot]
+  n_eigen: 128
+  n_hks: 16
+  temporal_stride: 4  # 60fps → 15fps
+
+# ---- Training ----
+# Runs once per feature_type in experiment.feature_types
+training:
+  seq_len: 16
+  batch_size: 16
+  num_workers: 4
+  train_subjects: [50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025]
+  test_subjects: [50026, 50027]
+
+  # DiffusionNet encoder
+  width: 128
+  depth: 4
+  henc: 256
+  n_eigen: 128
+
+  # GRU predictor
+  hpre: 256
+  predictor_layers: 1
+  steps: 4  # multi-step rollout
+
+  # Loss (VICReg)
+  std_coeff: 10.0
+  cov_coeff: 100.0
+  proj_spec: "256-1024-1024"
+
+  # Optimizer
+  epochs: 30
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+
+  # Logging
+  log_wandb: false
+  log_every: 1
+  save_every: 10
+
+# ---- Evaluation ----
+# Runs once per feature_type after training
+eval:
+  batch_size: 16
+  num_workers: 0
+  n_inference_clips: 3  # Number of clips to visualize
+  max_horizon: 15  # Maximum prediction horizon to evaluate
