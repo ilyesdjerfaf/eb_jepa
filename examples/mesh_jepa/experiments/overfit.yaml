@@ -16,8 +16,8 @@ experiment:
   feature_types: [hks]
 
 preprocessing:
-  raw_data_dir: datasets/dfaust/raw
-  processed_dir: datasets/dfaust/processed  # Use existing
+  raw_data_dir: /lustre/work/vivatech-discretizers/shared/dfaust/raw
+  processed_dir: /lustre/work/vivatech-discretizers/shared/dfaust/processed  # Use existing
   #
   # Available actions (DFAUST, 14 total):
   #   chicken_wings, hips, jiggle_on_toes, jumping_jacks, knees,
