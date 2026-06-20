@@ -111,6 +111,7 @@ def run(
         width=cfg.model.width,
         depth=cfg.model.depth,
         n_eigen=cfg.model.n_eigen,
+        dropout=cfg.model.get("dropout", True),
     )
 
     # Register operators
@@ -183,6 +184,12 @@ def run(
 
             loss = rloss + ploss
             loss.backward()
+
+            # Gradient clipping (stabilizes RNN training)
+            grad_clip = cfg.model.get("grad_clip", None)
+            if grad_clip:
+                torch.nn.utils.clip_grad_norm_(jepa.parameters(), grad_clip)
+
             optimizer.step()
 
             pbar.set_postfix(

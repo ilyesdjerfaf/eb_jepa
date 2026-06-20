@@ -21,7 +21,7 @@ experiment:
 # Shared across both feature types (saves vertices + HKS)
 preprocessing:
   raw_data_dir: datasets/dfaust/raw
-  # Output dir: datasets/dfaust/processed_{experiment.name}/
+  processed_dir: datasets/dfaust/processed  # Use existing preprocessed data
   #
   # Available actions (DFAUST, 14 total):
   #   chicken_wings, hips, jiggle_on_toes, jumping_jacks, knees,
@@ -35,38 +35,41 @@ preprocessing:
 
 # ---- Training ----
 # Runs once per feature_type in experiment.feature_types
+# Hyperparams justified in logs/parameter_tuning.md
 training:
   seq_len: 16
-  batch_size: 16
+  batch_size: 128               # VICReg needs batch diversity for covariance estimation
   num_workers: 4
   train_subjects: [50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025]
   test_subjects: [50026, 50027]
 
-  # DiffusionNet encoder
-  width: 128
-  depth: 4
-  henc: 256
-  n_eigen: 128
+  # DiffusionNet encoder (from Sharp et al. 2022, scaled up for expressivity)
+  width: 256                    # C_width: doubled from paper default for richer per-vertex features
+  depth: 6                      # N_block: deeper for more diffusion iterations
+  henc: 256                     # Output latent dim (representation space)
+  n_eigen: 128                  # Laplacian eigenvectors: sufficient spectral resolution
+  dropout: true                 # DiffusionNet paper: prevents overfitting on small datasets
 
-  # GRU predictor
-  hpre: 256
-  predictor_layers: 1
-  steps: 4  # multi-step rollout
+  # GRU predictor (from EB-JEPA ac_video_jepa pattern)
+  hpre: 256                     # Match encoder output dim
+  predictor_layers: 2           # Deeper than 1 for better temporal modeling
+  steps: 4                      # Multi-step rollout (EB-JEPA video_jepa default)
+  grad_clip: 2.0                # Stabilizes RNN training (EB-JEPA ac_video_jepa)
 
-  # Loss (VICReg)
-  std_coeff: 10.0
-  cov_coeff: 100.0
-  proj_spec: "256-1024-1024"
+  # Loss — VICReg temporal prediction regime (EB-JEPA video_jepa)
+  std_coeff: 10.0               # Variance regularization
+  cov_coeff: 100.0              # Covariance decorrelation (high for temporal tasks)
+  proj_spec: "256-1024-1024"    # Projector MLP before loss (proportional to dim)
 
   # Optimizer
-  epochs: 30
-  lr: 1.0e-3
-  weight_decay: 1.0e-5
+  epochs: 60
+  lr: 1.0e-3                    # Adam lr (DiffusionNet + EB-JEPA standard)
+  weight_decay: 1.0e-5          # Mild L2 (EB-JEPA temporal examples)
 
   # Logging
   log_wandb: false
   log_every: 1
-  save_every: 10
+  save_every: 10                # Checkpoint every 10 epochs
 
 # ---- Evaluation ----
 # Runs once per feature_type after training

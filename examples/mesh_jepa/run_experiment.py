@@ -191,6 +191,8 @@ def step_train(cfg, paths, feature_type, force=False):
             "n_eigen": t["n_eigen"],
             "steps": t["steps"],
             "predictor_layers": t["predictor_layers"],
+            "dropout": t.get("dropout", True),
+            "grad_clip": t.get("grad_clip", None),
         },
         "loss": {
             "std_coeff": t["std_coeff"],
