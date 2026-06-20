@@ -794,7 +794,9 @@ def plot_training_curves(history, output_dir):
     """Plot publication-quality training loss curves (per step)."""
     steps = [h.get("step", i) for i, h in enumerate(history)]
     total_loss = [h["train/loss"] for h in history]
-    pred_loss = [h.get("train/pred_loss", h.get("train/recon_loss", 0)) for h in history]
+    pred_loss = [
+        h.get("train/pred_loss", h.get("train/recon_loss", 0)) for h in history
+    ]
     vc_loss = [h.get("train/vc_loss", 0) for h in history]
     lr = [h["train/lr"] for h in history]
 
