@@ -93,7 +93,7 @@ def load_model(model_path, device):
     predcost = SquareLossSeq(projector)
 
     jepa = JEPA(encoder, encoder, predictor, regularizer, predcost).to(device)
-    jepa.load_state_dict(ckpt["model_state_dict"])
+    jepa.load_state_dict(ckpt["model_state_dict"], strict=False)
     jepa.eval()
 
     feature_type = "hks" if in_channels == 16 else "xyz"

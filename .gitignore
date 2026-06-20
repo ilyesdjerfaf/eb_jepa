@@ -236,4 +236,5 @@ logs/
 
 .DS_Store
 
-
+results
+results/*
