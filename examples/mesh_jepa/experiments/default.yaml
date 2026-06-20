@@ -20,8 +20,8 @@ experiment:
 # ---- Preprocessing ----
 # Shared across both feature types (saves vertices + HKS)
 preprocessing:
-  raw_data_dir: datasets/dfaust/raw
-  processed_dir: datasets/dfaust/processed  # Use existing preprocessed data
+  raw_data_dir: /lustre/work/vivatech-discretizers/shared/dfaust/raw
+  processed_dir: /lustre/work/vivatech-discretizers/shared/dfaust/processed  # Use existing preprocessed data
   #
   # Available actions (DFAUST, 14 total):
   #   chicken_wings, hips, jiggle_on_toes, jumping_jacks, knees,
