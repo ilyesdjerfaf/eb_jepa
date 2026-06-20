@@ -1,0 +1,72 @@
+# ============================================================
+# MLP Baseline — same params as DiffusionNet, no geometric bias
+# ============================================================
+# Replaces DiffusionNet with a per-vertex MLP (no spectral diffusion).
+# Same ~4.9M encoder params for fair comparison.
+# Purpose: demonstrate the value of DiffusionNet's geometric inductive bias.
+#
+# Usage:
+#   uv run python -m examples.mesh_jepa.run_experiment \
+#       --config examples/mesh_jepa/experiments/mlp_baseline.yaml train --feature_type hks
+# ============================================================
+
+experiment:
+  name: "mlp_baseline"
+  seed: 42
+  device: auto
+  feature_types: [hks]          # Run one at a time
+
+preprocessing:
+  raw_data_dir: /lustre/work/vivatech-discretizers/shared/dfaust/raw
+  processed_dir: /lustre/work/vivatech-discretizers/shared/dfaust/processed
+  #
+  # Available actions (DFAUST, 14 total):
+  #   chicken_wings, hips, jiggle_on_toes, jumping_jacks, knees,
+  #   light_hopping_loose, light_hopping_stiff, one_leg_jump,
+  #   one_leg_loose, punching, running_on_spot, shake_arms,
+  #   shake_hips, shake_shoulders
+  actions: [jumping_jacks, punching, running_on_spot]
+  n_eigen: 128
+  n_hks: 16
+  temporal_stride: 4
+
+training:
+  seq_len: 16
+  batch_size: 16
+  num_workers: 0
+  train_subjects: [50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025]
+  test_subjects: [50026, 50027]
+
+  # MLP encoder (~4.9M params, matching DiffusionNet large)
+  encoder_type: mlp             # <-- KEY DIFFERENCE
+  width: 768                    # Per-vertex MLP width
+  depth: 9                      # Number of hidden layers
+  henc: 256                     # Output latent dim (same as DiffusionNet)
+  n_eigen: 128                  # Unused by MLP but needed for operators
+  dropout: true
+
+  # Predictor (same as DiffusionNet experiment)
+  hpre: 256
+  predictor_layers: 2
+  steps: 4
+  grad_clip: 2.0
+
+  # Loss (same)
+  std_coeff: 10.0
+  cov_coeff: 100.0
+  proj_spec: "256-1024-1024"
+
+  # Optimizer (same)
+  epochs: 60
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+
+  log_wandb: false
+  log_every: 1
+  save_every: 100
+
+eval:
+  batch_size: 16
+  num_workers: 0
+  n_inference_clips: 3
+  max_horizon: 15

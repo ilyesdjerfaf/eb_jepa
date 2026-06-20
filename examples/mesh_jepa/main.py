@@ -106,14 +106,27 @@ def run(
 
     # Model
     in_channels = 16 if cfg.data.feature_type == "hks" else 3
-    encoder = DiffusionNetEncoder(
-        in_channels=in_channels,
-        out_dim=cfg.model.henc,
-        width=cfg.model.width,
-        depth=cfg.model.depth,
-        n_eigen=cfg.model.n_eigen,
-        dropout=cfg.model.get("dropout", True),
-    )
+    encoder_type = cfg.model.get("encoder_type", "diffusionnet")
+
+    if encoder_type == "mlp":
+        from examples.mesh_jepa.encoder_mlp import MLPEncoder
+
+        encoder = MLPEncoder(
+            in_channels=in_channels,
+            out_dim=cfg.model.henc,
+            width=cfg.model.width,
+            depth=cfg.model.depth,
+            dropout=cfg.model.get("dropout", True),
+        )
+    else:
+        encoder = DiffusionNetEncoder(
+            in_channels=in_channels,
+            out_dim=cfg.model.henc,
+            width=cfg.model.width,
+            depth=cfg.model.depth,
+            n_eigen=cfg.model.n_eigen,
+            dropout=cfg.model.get("dropout", True),
+        )
 
     # Register operators
     ops = train_set.get_operators()
