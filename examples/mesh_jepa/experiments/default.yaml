@@ -38,8 +38,8 @@ preprocessing:
 # Hyperparams justified in logs/parameter_tuning.md
 training:
   seq_len: 16
-  batch_size: 128               # VICReg needs batch diversity for covariance estimation
-  num_workers: 4
+  batch_size: 16                # Limited by GPU memory (B*T*V*C through DiffusionNet)
+  num_workers: 0                # Avoid worker OOM on cluster
   train_subjects: [50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025]
   test_subjects: [50026, 50027]
 
