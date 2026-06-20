@@ -1,26 +1,30 @@
-"""Generate meshes from embeddings using trained AtlasNet + Poisson reconstruction.
+"""Generate meshes from embeddings using trained AtlasNet + surface reconstruction.
 
 Pipeline:
     1. Load trained AtlasNet
     2. Generate dense point cloud from embedding
-    3. Estimate normals (PCA-based)
-    4. Poisson surface reconstruction → watertight mesh
-    5. Save as .ply files
+    3. Surface reconstruction (Delaunay + alpha shape filtering)
+    4. Save as .ply files
+
+No open3d or scikit-image required — uses scipy + trimesh only.
 
 Usage:
-    uv run python -m examples.mesh_jepa.inference.reconstruct \
-        --model_dir examples/mesh_jepa/inference/models/jepa_large_hks \
-        --data_dir examples/mesh_jepa/inference/data/jepa_large_hks \
-        --output_dir examples/mesh_jepa/inference/meshes/jepa_large_hks \
+    python -m examples.mesh_jepa.inference.reconstruct \
+        --model_dir /lustre/work/.../inference/models/jepa_large_hks \
+        --data_dir /lustre/work/.../inference/data/jepa_large_hks \
+        --output_dir /lustre/work/.../inference/meshes/jepa_large_hks \
         --n_samples 20
 """
 
 import json
+from collections import Counter
 from pathlib import Path
 
 import fire
 import numpy as np
 import torch
+import trimesh
+from scipy.spatial import Delaunay
 from tqdm import tqdm
 
 from eb_jepa.logging import get_logger
@@ -29,56 +33,68 @@ from examples.mesh_jepa.inference.atlasnet import AtlasNet
 logger = get_logger(__name__)
 
 
-def estimate_normals(points, k=30):
-    """Estimate normals via PCA on k-nearest neighbors.
+def alpha_shape_mesh(points, alpha=None):
+    """Reconstruct surface mesh from point cloud using alpha shapes.
 
-    points: (N, 3) numpy array
-    Returns: normals (N, 3)
+    Uses 3D Delaunay triangulation, extracts boundary faces,
+    then filters by maximum edge length (alpha parameter).
+
+    Args:
+        points: (N, 3) numpy array
+        alpha: max edge length threshold. If None, auto-computed from point density.
+    Returns:
+        vertices (N, 3), faces (F, 3) or (None, None) on failure
     """
-    from scipy.spatial import KDTree
+    if len(points) < 4:
+        return None, None
 
-    tree = KDTree(points)
-    _, idx = tree.query(points, k=k)
-    normals = np.zeros_like(points)
+    # Auto-compute alpha from point density
+    if alpha is None:
+        from scipy.spatial import cKDTree
 
-    for i in range(len(points)):
-        neighbors = points[idx[i]]
-        centered = neighbors - neighbors.mean(axis=0)
-        cov = centered.T @ centered
-        _, vecs = np.linalg.eigh(cov)
-        normals[i] = vecs[:, 0]  # smallest eigenvector = normal
+        tree = cKDTree(points)
+        dists, _ = tree.query(points, k=6)
+        avg_dist = dists[:, 1:].mean()
+        alpha = avg_dist * 3.0
 
-    # Orient normals consistently (point outward from centroid)
-    centroid = points.mean(axis=0)
-    for i in range(len(points)):
-        if np.dot(normals[i], points[i] - centroid) < 0:
-            normals[i] *= -1
+    # Delaunay triangulation
+    try:
+        tri = Delaunay(points)
+    except Exception as e:
+        logger.warning(f"Delaunay failed: {e}")
+        return None, None
 
-    return normals
+    # Extract boundary faces (faces belonging to exactly one tetrahedron)
+    face_count = Counter()
+    for simplex in tri.simplices:
+        for face in [
+            (simplex[0], simplex[1], simplex[2]),
+            (simplex[0], simplex[1], simplex[3]),
+            (simplex[0], simplex[2], simplex[3]),
+            (simplex[1], simplex[2], simplex[3]),
+        ]:
+            face_count[tuple(sorted(face))] += 1
 
+    boundary_faces = [list(f) for f, c in face_count.items() if c == 1]
 
-def poisson_reconstruct(points, normals, depth=8):
-    """Poisson surface reconstruction using Open3D.
+    if not boundary_faces:
+        return None, None
 
-    Returns: open3d TriangleMesh
-    """
-    import open3d as o3d
+    # Alpha filter: remove faces with edges longer than alpha
+    filtered = []
+    for f in boundary_faces:
+        edges = [
+            np.linalg.norm(points[f[0]] - points[f[1]]),
+            np.linalg.norm(points[f[1]] - points[f[2]]),
+            np.linalg.norm(points[f[0]] - points[f[2]]),
+        ]
+        if max(edges) < alpha:
+            filtered.append(f)
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.normals = o3d.utility.Vector3dVector(normals)
+    if not filtered:
+        return None, None
 
-    mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-        pcd, depth=depth
-    )
-
-    # Trim low-density vertices (removes reconstruction artifacts at boundaries)
-    densities = np.asarray(densities)
-    threshold = np.quantile(densities, 0.05)
-    vertices_to_remove = densities < threshold
-    mesh.remove_vertices_by_mask(vertices_to_remove)
-
-    return mesh
+    return points, np.array(filtered)
 
 
 def run(
@@ -87,7 +103,7 @@ def run(
     output_dir: str,
     n_samples: int = 20,
     points_per_patch: int = 2000,
-    poisson_depth: int = 8,
+    alpha: float = None,
     device: str = "auto",
     save_pointclouds: bool = True,
 ):
@@ -99,10 +115,8 @@ def run(
         output_dir: Where to save generated .ply meshes
         n_samples: Number of samples to reconstruct
         points_per_patch: Dense sampling for reconstruction (more = smoother)
-        poisson_depth: Octree depth for Poisson (higher = more detail)
+        alpha: Alpha shape threshold (None = auto from point density)
     """
-    import open3d as o3d
-
     from eb_jepa.training_utils import setup_device
 
     device = setup_device(device)
@@ -145,11 +159,12 @@ def run(
     n_samples = min(n_samples, len(embeddings))
     indices = np.linspace(0, len(embeddings) - 1, n_samples, dtype=int)
 
+    total_pts = points_per_patch * config["n_patches"]
     logger.info(
-        f"Reconstructing {n_samples} meshes (dense sampling: {points_per_patch} pts/patch)..."
+        f"Reconstructing {n_samples} meshes "
+        f"(dense: {points_per_patch} pts/patch × {config['n_patches']} patches = "
+        f"{total_pts} points)"
     )
-
-    chamfer_scores = []
 
     for i, idx in enumerate(tqdm(indices, desc="Reconstructing")):
         emb = torch.from_numpy(embeddings[idx : idx + 1]).float().to(device)
@@ -159,40 +174,39 @@ def run(
             points, patch_ids = model.forward_per_patch(
                 emb, n_points_per_patch=points_per_patch
             )
-        points_np = points[0].cpu().numpy()  # (total_points, 3)
+        points_np = points[0].cpu().numpy()
 
         # Save point cloud
         if save_pointclouds:
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(points_np)
-            o3d.io.write_point_cloud(str(output_dir / f"sample_{i:03d}_pc.ply"), pcd)
+            cloud = trimesh.PointCloud(points_np)
+            cloud.export(str(output_dir / f"sample_{i:03d}_pc.ply"))
 
-        # Estimate normals
-        normals = estimate_normals(points_np)
+        # Surface reconstruction (alpha shape)
+        verts, faces = alpha_shape_mesh(points_np, alpha=alpha)
 
-        # Poisson surface reconstruction
-        mesh = poisson_reconstruct(points_np, normals, depth=poisson_depth)
-
-        # Save mesh
-        o3d.io.write_triangle_mesh(str(output_dir / f"sample_{i:03d}_mesh.ply"), mesh)
+        if verts is not None:
+            mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=False)
+            mesh.export(str(output_dir / f"sample_{i:03d}_mesh.ply"))
+            logger.info(
+                f"  Sample {i}: {len(points_np)} pts → "
+                f"{len(verts)} verts, {len(faces)} faces"
+            )
+        else:
+            logger.warning(
+                f"  Sample {i}: reconstruction failed, saved point cloud only"
+            )
 
         # Save ground truth for comparison
         if gt_available and gt_clouds.shape[-1] == 3:
-            gt_pcd = o3d.geometry.PointCloud()
-            gt_pcd.points = o3d.utility.Vector3dVector(gt_clouds[idx])
-            o3d.io.write_point_cloud(str(output_dir / f"sample_{i:03d}_gt.ply"), gt_pcd)
-
-        logger.info(
-            f"  Sample {i}: {len(points_np)} generated points → "
-            f"{len(mesh.vertices)} mesh vertices, {len(mesh.triangles)} faces"
-        )
+            gt_cloud = trimesh.PointCloud(gt_clouds[idx])
+            gt_cloud.export(str(output_dir / f"sample_{i:03d}_gt.ply"))
 
     # Summary
     summary = {
         "n_samples": n_samples,
         "points_per_patch": points_per_patch,
-        "total_generated_points": config["n_patches"] * points_per_patch,
-        "poisson_depth": poisson_depth,
+        "total_generated_points": total_pts,
+        "alpha": alpha,
         "model_dir": str(model_dir),
     }
     with open(output_dir / "summary.json", "w") as f:
