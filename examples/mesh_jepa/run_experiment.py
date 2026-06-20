@@ -194,6 +194,7 @@ def step_train(cfg, paths, feature_type, force=False):
             "predictor_layers": t["predictor_layers"],
             "dropout": t.get("dropout", True),
             "grad_clip": t.get("grad_clip", None),
+            "encoder_type": t.get("encoder_type", "diffusionnet"),
         },
         "loss": {
             "std_coeff": t["std_coeff"],
