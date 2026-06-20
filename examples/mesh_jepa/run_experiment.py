@@ -21,7 +21,6 @@ from pathlib import Path
 
 import yaml
 
-
 RESERVED_NAMES = ["default", "quick_test", "experiment", "test", "unnamed"]
 
 
@@ -39,7 +38,9 @@ def validate_experiment_name(cfg, paths, force=False):
 
     if name in RESERVED_NAMES:
         print(f"\n  ERROR: Experiment name '{name}' is a reserved/default name.")
-        print(f"  Please set a unique name in your YAML: experiment.name: \"your_name_here\"")
+        print(
+            f'  Please set a unique name in your YAML: experiment.name: "your_name_here"'
+        )
         sys.exit(1)
 
     # Check if outputs already exist from a previous run with same name
@@ -64,7 +65,9 @@ def validate_experiment_name(cfg, paths, force=False):
             for e in existing:
                 print(e)
             print(f"\n  Options:")
-            print(f"    1. Change experiment.name in your YAML to start a fresh experiment")
+            print(
+                f"    1. Change experiment.name in your YAML to start a fresh experiment"
+            )
             print(f"    2. Use --force to overwrite existing outputs")
             print(f"\n  Aborting to prevent accidental overwrite.")
             sys.exit(1)
@@ -76,7 +79,9 @@ def resolve_paths(cfg):
     raw_dir = cfg["preprocessing"]["raw_data_dir"]
 
     # Allow explicit processed_dir override (useful for quick_test reusing existing data)
-    processed_dir = cfg["preprocessing"].get("processed_dir", f"datasets/dfaust/processed_{name}")
+    processed_dir = cfg["preprocessing"].get(
+        "processed_dir", f"datasets/dfaust/processed_{name}"
+    )
 
     paths = {
         "name": name,
@@ -124,13 +129,21 @@ def step_preprocess(cfg, paths, force=False):
 
     prep = cfg["preprocessing"]
     cmd = [
-        sys.executable, "-m", "examples.mesh_jepa.preprocess",
-        "--data_dir", prep["raw_data_dir"],
-        "--out_dir", paths["processed_dir"],
-        "--n_eigen", str(prep["n_eigen"]),
-        "--n_hks", str(prep["n_hks"]),
-        "--temporal_stride", str(prep["temporal_stride"]),
-        "--actions", *prep["actions"],
+        sys.executable,
+        "-m",
+        "examples.mesh_jepa.preprocess",
+        "--data_dir",
+        prep["raw_data_dir"],
+        "--out_dir",
+        paths["processed_dir"],
+        "--n_eigen",
+        str(prep["n_eigen"]),
+        "--n_hks",
+        str(prep["n_hks"]),
+        "--temporal_stride",
+        str(prep["temporal_stride"]),
+        "--actions",
+        *prep["actions"],
     ]
 
     return run_cmd(cmd, f"PREPROCESSING → {paths['processed_dir']}")
@@ -202,9 +215,13 @@ def step_train(cfg, paths, feature_type, force=False):
         yaml.dump(train_cfg, f, default_flow_style=False)
 
     cmd = [
-        sys.executable, "-m", "examples.mesh_jepa.main",
-        "--fname", str(tmp_cfg_path),
-        "--folder", str(model_dir),
+        sys.executable,
+        "-m",
+        "examples.mesh_jepa.main",
+        "--fname",
+        str(tmp_cfg_path),
+        "--folder",
+        str(model_dir),
     ]
 
     return run_cmd(cmd, f"TRAINING [{feature_type.upper()}] → {model_dir}")
@@ -228,13 +245,21 @@ def step_eval(cfg, paths, feature_type, force=False):
     exp = cfg["experiment"]
 
     cmd = [
-        sys.executable, "-m", "examples.mesh_jepa.eval",
-        "--model_path", str(model_path),
-        "--data_dir", paths["processed_dir"],
-        "--output_dir", str(eval_dir),
-        "--batch_size", str(ev["batch_size"]),
-        "--num_workers", str(ev["num_workers"]),
-        "--device", exp["device"],
+        sys.executable,
+        "-m",
+        "examples.mesh_jepa.eval",
+        "--model_path",
+        str(model_path),
+        "--data_dir",
+        paths["processed_dir"],
+        "--output_dir",
+        str(eval_dir),
+        "--batch_size",
+        str(ev["batch_size"]),
+        "--num_workers",
+        str(ev["num_workers"]),
+        "--device",
+        exp["device"],
     ]
 
     return run_cmd(cmd, f"EVALUATION [{feature_type.upper()}] → {eval_dir}")
@@ -256,10 +281,16 @@ def step_summary(cfg, paths):
         results_path = Path(paths["eval_dirs"][ft]) / "results.npy"
         if results_path.exists():
             results = dict(np.load(results_path, allow_pickle=True).item())
-            print(f"  Probe Accuracy (test): {results.get('encoder_probe_test_acc', 'N/A'):.1%}")
-            print(f"  Effective Rank:        {results.get('effective_rank', 'N/A'):.1f}")
+            print(
+                f"  Probe Accuracy (test): {results.get('encoder_probe_test_acc', 'N/A'):.1%}"
+            )
+            print(
+                f"  Effective Rank:        {results.get('effective_rank', 'N/A'):.1f}"
+            )
             if "timing" in results:
-                print(f"  Inference Latency:     {results['timing'].get('total_inference_time_ms', 'N/A'):.1f} ms")
+                print(
+                    f"  Inference Latency:     {results['timing'].get('total_inference_time_ms', 'N/A'):.1f} ms"
+                )
 
     print(f"\n{'='*60}")
 
@@ -286,19 +317,24 @@ Examples:
         "--config", type=str, required=True, help="Path to experiment YAML"
     )
     parser.add_argument(
-        "target", choices=["preprocess", "train", "eval", "all", "summary"],
+        "target",
+        choices=["preprocess", "train", "eval", "all", "summary"],
         help="Which step to run",
     )
     parser.add_argument(
-        "--feature_type", type=str, default=None,
+        "--feature_type",
+        type=str,
+        default=None,
         help="Run only for this feature type (default: all in config)",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Force re-run even if outputs exist",
     )
     parser.add_argument(
-        "--preprocess", action="store_true",
+        "--preprocess",
+        action="store_true",
         help="Include preprocessing when running 'all' (skipped by default if data exists)",
     )
     args = parser.parse_args()
@@ -311,8 +347,7 @@ Examples:
         validate_experiment_name(cfg, paths, force=args.force)
 
     feature_types = (
-        [args.feature_type] if args.feature_type
-        else cfg["experiment"]["feature_types"]
+        [args.feature_type] if args.feature_type else cfg["experiment"]["feature_types"]
     )
 
     timings = {}
@@ -325,8 +360,12 @@ Examples:
         if not (processed_dir / "manifest.csv").exists():
             print(f"\n  ERROR: Preprocessed data not found at {processed_dir}")
             print(f"  Either:")
-            print(f"    - Run with --preprocess flag: run_experiment.py --config ... all --preprocess")
-            print(f"    - Or run preprocessing separately: run_experiment.py --config ... preprocess")
+            print(
+                f"    - Run with --preprocess flag: run_experiment.py --config ... all --preprocess"
+            )
+            print(
+                f"    - Or run preprocessing separately: run_experiment.py --config ... preprocess"
+            )
             sys.exit(1)
 
     if args.target in ("train", "all"):
@@ -338,7 +377,6 @@ Examples:
             timings[f"eval_{ft}"] = step_eval(cfg, paths, ft, force=args.force)
 
     if args.target in ("summary", "all"):
-        import numpy as np
         step_summary(cfg, paths)
 
     # Print timing summary

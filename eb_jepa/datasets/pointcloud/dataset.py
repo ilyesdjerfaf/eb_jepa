@@ -13,6 +13,7 @@ Data loading is PROVIDED (plumbing). The modelling choices on top of these views
 ``mode="ssl"`` -> ``(v1, v2, label)`` (two augmented views, each ``[3, n_points]``);
 ``mode="supervised"`` -> ``(x[3, n_points], label)`` (one deterministic clean view).
 """
+
 import glob
 import os
 from dataclasses import dataclass
@@ -28,14 +29,16 @@ except ImportError:
 
 @dataclass
 class PointCloudConfig:
-    data_root: str = ("/lustre/work/pdl17890/udl806719/datasets/modelnet40/"
-                      "modelnet40_ply_hdf5_2048")
-    split: str = "train"            # train | test
-    mode: str = "ssl"               # ssl (two views) | supervised ((x, y))
+    data_root: str = (
+        "/lustre/work/pdl17890/udl806719/datasets/modelnet40/"
+        "modelnet40_ply_hdf5_2048"
+    )
+    split: str = "train"  # train | test
+    mode: str = "ssl"  # ssl (two views) | supervised ((x, y))
     n_classes: int = 40
     n_points: int = 1024
     # SSL augmentations (geometric)
-    rotate: str = "so3"             # so3 (full) | z (azimuth only) | none
+    rotate: str = "so3"  # so3 (full) | z (azimuth only) | none
     jitter: float = 0.01
     scale_lo: float = 0.8
     scale_hi: float = 1.25
@@ -52,16 +55,24 @@ def _rand_rot(rng, mode):
         return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float32)
     # uniform SO(3) via a random quaternion
     u1, u2, u3 = rng.uniform(size=3)
-    q = np.array([np.sqrt(1 - u1) * np.sin(2 * np.pi * u2),
-                  np.sqrt(1 - u1) * np.cos(2 * np.pi * u2),
-                  np.sqrt(u1) * np.sin(2 * np.pi * u3),
-                  np.sqrt(u1) * np.cos(2 * np.pi * u3)], dtype=np.float64)
+    q = np.array(
+        [
+            np.sqrt(1 - u1) * np.sin(2 * np.pi * u2),
+            np.sqrt(1 - u1) * np.cos(2 * np.pi * u2),
+            np.sqrt(u1) * np.sin(2 * np.pi * u3),
+            np.sqrt(u1) * np.cos(2 * np.pi * u3),
+        ],
+        dtype=np.float64,
+    )
     w, x, y, z = q
-    return np.array([
-        [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
-        [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
-        [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
-    ], dtype=np.float32)
+    return np.array(
+        [
+            [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+        ],
+        dtype=np.float32,
+    )
 
 
 class PointCloudDataset(torch.utils.data.Dataset):
@@ -69,15 +80,18 @@ class PointCloudDataset(torch.utils.data.Dataset):
         if h5py is None:
             raise ImportError("h5py required for the ModelNet40 HDF5 loader")
         self.cfg = cfg
-        files = sorted(glob.glob(os.path.join(cfg.data_root, f"ply_data_{cfg.split}*.h5")))
+        files = sorted(
+            glob.glob(os.path.join(cfg.data_root, f"ply_data_{cfg.split}*.h5"))
+        )
         if not files:
             raise FileNotFoundError(
                 f"no ply_data_{cfg.split}*.h5 under {cfg.data_root} — "
-                "download the modelnet40_ply_hdf5_2048 release first")
+                "download the modelnet40_ply_hdf5_2048 release first"
+            )
         data, label = [], []
         for p in files:
             with h5py.File(p, "r") as f:
-                data.append(f["data"][:].astype(np.float32))      # [n, 2048, 3]
+                data.append(f["data"][:].astype(np.float32))  # [n, 2048, 3]
                 label.append(f["label"][:].astype(np.int64).reshape(-1))
         self.data = np.concatenate(data, 0)
         self.label = np.concatenate(label, 0)
@@ -106,13 +120,13 @@ class PointCloudDataset(torch.utils.data.Dataset):
         return self._normalize(pc[idx]).astype(np.float32)
 
     def __getitem__(self, i):
-        rng = np.random.default_rng(torch.randint(0, 2 ** 31 - 1, (1,)).item())
+        rng = np.random.default_rng(torch.randint(0, 2**31 - 1, (1,)).item())
         pc, y = self.data[i], int(self.label[i])
         if self.cfg.mode == "supervised":
-            return torch.from_numpy(self._clean(pc).T), y            # [3, N], label
+            return torch.from_numpy(self._clean(pc).T), y  # [3, N], label
         # SSL: two independent augmented views of the SAME object -> view invariance
-        v1 = torch.from_numpy(self._augment(pc, rng).T)              # [3, N]
-        v2 = torch.from_numpy(self._augment(pc, rng).T)              # [3, N]
+        v1 = torch.from_numpy(self._augment(pc, rng).T)  # [3, N]
+        v2 = torch.from_numpy(self._augment(pc, rng).T)  # [3, N]
         return v1, v2, y
 
 
@@ -122,6 +136,11 @@ def make_loader(cfg: PointCloudConfig, shuffle=None):
     if shuffle is None:
         shuffle = is_train
     return torch.utils.data.DataLoader(
-        ds, batch_size=cfg.batch_size, shuffle=shuffle,
-        num_workers=cfg.num_workers, pin_memory=True, drop_last=cfg.mode == "ssl",
-        persistent_workers=cfg.num_workers > 0)
+        ds,
+        batch_size=cfg.batch_size,
+        shuffle=shuffle,
+        num_workers=cfg.num_workers,
+        pin_memory=True,
+        drop_last=cfg.mode == "ssl",
+        persistent_workers=cfg.num_workers > 0,
+    )

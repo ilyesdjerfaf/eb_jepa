@@ -7,6 +7,7 @@ prediction energy. Everything else (stimuli, loading, AUROC, reporting) is given
 
 Run:  python -m examples.intuitive_physics.eval --ckpt <.../latest.pth.tar>
 """
+
 import sys
 
 import numpy as np
@@ -41,7 +42,9 @@ def clip_energy(jepa, clips, nsteps, device, batch_size=32):
 
     Return a CPU tensor of shape ``[N]`` (one energy per clip).
     """
-    raise NotImplementedError("TODO: implement the per-clip predcost energy (see docstring)")
+    raise NotImplementedError(
+        "TODO: implement the per-clip predcost energy (see docstring)"
+    )
 
 
 def _auroc(e_pla, e_imp):
@@ -51,11 +54,16 @@ def _auroc(e_pla, e_imp):
 
 def main():
     if "--ckpt" not in sys.argv:
-        raise SystemExit("usage: python -m examples.intuitive_physics.eval --ckpt <path> "
-                         "[--fname examples/intuitive_physics/cfgs/eval.yaml]")
+        raise SystemExit(
+            "usage: python -m examples.intuitive_physics.eval --ckpt <path> "
+            "[--fname examples/intuitive_physics/cfgs/eval.yaml]"
+        )
     ckpt = sys.argv[sys.argv.index("--ckpt") + 1]
-    fname = (sys.argv[sys.argv.index("--fname") + 1] if "--fname" in sys.argv
-             else "examples/intuitive_physics/cfgs/eval.yaml")
+    fname = (
+        sys.argv[sys.argv.index("--fname") + 1]
+        if "--fname" in sys.argv
+        else "examples/intuitive_physics/cfgs/eval.yaml"
+    )
     cfg = load_config(fname)
     device = setup_device(cfg.meta.get("device", "auto"))
 
@@ -63,7 +71,9 @@ def main():
     load_checkpoint(ckpt, jepa, device=device)
     jepa.eval()
 
-    pairs = build_probe_pairs(n_pairs=cfg.probe.n_pairs, T=cfg.data.T, seed=cfg.probe.seed)
+    pairs = build_probe_pairs(
+        n_pairs=cfg.probe.n_pairs, T=cfg.data.T, seed=cfg.probe.seed
+    )
     nsteps = cfg.model.steps
     print(f"{'violation':12s} {'energy gap':>12s} {'AUROC':>7s}")
     results = {}

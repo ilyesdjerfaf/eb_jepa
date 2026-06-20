@@ -66,7 +66,9 @@ def render_mesh_frame(ax, vertices, faces, title="", elev=10, azim=135):
 
     # Color by height (original Y = plot Z)
     face_colors = plot_verts[faces[:, 0], 2]
-    face_colors = (face_colors - face_colors.min()) / (face_colors.max() - face_colors.min() + 1e-8)
+    face_colors = (face_colors - face_colors.min()) / (
+        face_colors.max() - face_colors.min() + 1e-8
+    )
     colors = plt.cm.viridis(face_colors)
     mesh.set_facecolor(colors)
 
@@ -102,7 +104,9 @@ def render_static_strip(vertices_seq, faces, n_frames=6, title="", save_path=Non
     return fig
 
 
-def render_animated_gif(vertices_seq, faces, save_path, fps=15, stride=2, n_rotations=0):
+def render_animated_gif(
+    vertices_seq, faces, save_path, fps=15, stride=2, n_rotations=0
+):
     """Render sequence as animated GIF."""
     frames_to_render = vertices_seq[::stride]
     n = len(frames_to_render)
@@ -114,12 +118,17 @@ def render_animated_gif(vertices_seq, faces, save_path, fps=15, stride=2, n_rota
     def update(frame_idx):
         azim = 135 + (360 * n_rotations * frame_idx / n) if n_rotations else 135
         render_mesh_frame(
-            ax, frames_to_render[frame_idx], faces,
-            title=f"frame {frame_idx * stride}", azim=azim
+            ax,
+            frames_to_render[frame_idx],
+            faces,
+            title=f"frame {frame_idx * stride}",
+            azim=azim,
         )
         return []
 
-    anim = animation.FuncAnimation(fig, update, frames=n, interval=1000 // fps, blit=False)
+    anim = animation.FuncAnimation(
+        fig, update, frames=n, interval=1000 // fps, blit=False
+    )
     anim.save(str(save_path), writer="pillow", fps=fps)
     plt.close(fig)
     print(f"Saved: {save_path} ({n} frames, {n / fps:.1f}s)")
@@ -142,7 +151,9 @@ def render_action_grid(data_dir: Path, faces, subject="50002", save_path=None):
         action = seq_name.split("_", 1)[1]
 
         for col, t in enumerate(time_indices):
-            ax = fig.add_subplot(n_actions, n_time, row * n_time + col + 1, projection="3d")
+            ax = fig.add_subplot(
+                n_actions, n_time, row * n_time + col + 1, projection="3d"
+            )
             title = f"{action}" if col == 0 else f"t={t}"
             render_mesh_frame(ax, verts[t], faces, title=title)
 
@@ -170,13 +181,25 @@ def main():
     parser = argparse.ArgumentParser(description="Visualize DFAUST meshes")
     parser.add_argument("--data_dir", type=str, default="datasets/dfaust/raw")
     parser.add_argument("--save_dir", type=str, default="datasets/dfaust/figures")
-    parser.add_argument("--sequence", type=str, default=None,
-                        help="Sequence name (e.g. 50002_jumping_jacks). Default: first available")
+    parser.add_argument(
+        "--sequence",
+        type=str,
+        default=None,
+        help="Sequence name (e.g. 50002_jumping_jacks). Default: first available",
+    )
     parser.add_argument("--gif", action="store_true", help="Render animated GIF")
-    parser.add_argument("--interactive", action="store_true", help="Open interactive 3D viewer")
-    parser.add_argument("--grid", action="store_true", help="Render action grid for one subject")
-    parser.add_argument("--subject", type=str, default="50002", help="Subject for grid view")
-    parser.add_argument("--list", action="store_true", help="List all sequences and exit")
+    parser.add_argument(
+        "--interactive", action="store_true", help="Open interactive 3D viewer"
+    )
+    parser.add_argument(
+        "--grid", action="store_true", help="Render action grid for one subject"
+    )
+    parser.add_argument(
+        "--subject", type=str, default="50002", help="Subject for grid view"
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="List all sequences and exit"
+    )
     parser.add_argument("--stride", type=int, default=2, help="Frame stride for GIF")
     parser.add_argument("--no_show", action="store_true")
     args = parser.parse_args()
@@ -223,8 +246,9 @@ def main():
 
     # Default: static strip
     strip_path = save_dir / f"{args.sequence}_strip.png"
-    render_static_strip(vertices, faces, n_frames=6,
-                        title=args.sequence, save_path=strip_path)
+    render_static_strip(
+        vertices, faces, n_frames=6, title=args.sequence, save_path=strip_path
+    )
 
     if not args.no_show:
         plt.show()

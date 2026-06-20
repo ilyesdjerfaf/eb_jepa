@@ -7,12 +7,13 @@ upload the discrete grids to GPU for rendering.
 """
 
 import random
-from typing import List, Tuple
 
 import numpy as np
 
 
-def generate_maze(height: int, width: int, rng: np.random.Generator = None) -> np.ndarray:
+def generate_maze(
+    height: int, width: int, rng: np.random.Generator = None
+) -> np.ndarray:
     """Generate a perfect maze via randomised DFS.
 
     Args:
@@ -22,17 +23,17 @@ def generate_maze(height: int, width: int, rng: np.random.Generator = None) -> n
     Returns:
         uint8 array (H, W): 0 = wall, 1 = path.
     """
-    assert height % 2 == 1 and width % 2 == 1, (
-        f"Maze dims must be odd, got {height}x{width}"
-    )
+    assert (
+        height % 2 == 1 and width % 2 == 1
+    ), f"Maze dims must be odd, got {height}x{width}"
     maze = np.zeros((height, width), dtype=np.uint8)
     start_r, start_c = 1, 1
     maze[start_r, start_c] = 1
 
     stack = [(start_r, start_c)]
     directions = [(-2, 0), (2, 0), (0, -2), (0, 2)]
-    _choice = (rng.choice if rng is not None else random.choice)
-    _shuffle = (rng.shuffle if rng is not None else random.shuffle)
+    _choice = rng.choice if rng is not None else random.choice
+    _shuffle = rng.shuffle if rng is not None else random.shuffle
 
     while stack:
         r, c = stack[-1]

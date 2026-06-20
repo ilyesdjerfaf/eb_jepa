@@ -16,6 +16,7 @@ marked ``# TODO`` below — that is the whole point of the track:
 
 Run:  python -m examples.gray_scott.main --fname examples/gray_scott/cfgs/train.yaml
 """
+
 import os
 import sys
 import time
@@ -71,30 +72,50 @@ def build_jepa(encoder, cfg):
 # --------------------------------------------------------------------------- #
 # TRAINING LOOP  — provided
 # --------------------------------------------------------------------------- #
-def run(fname="examples/gray_scott/cfgs/train.yaml", cfg=None, folder=None, **overrides):
+def run(
+    fname="examples/gray_scott/cfgs/train.yaml", cfg=None, folder=None, **overrides
+):
     if cfg is None:
         cfg = OmegaConf.load(fname)
         if overrides:
-            cfg = OmegaConf.merge(cfg, OmegaConf.from_dotlist([f"{k}={v}" for k, v in overrides.items()]))
+            cfg = OmegaConf.merge(
+                cfg, OmegaConf.from_dotlist([f"{k}={v}" for k, v in overrides.items()])
+            )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(cfg.meta.seed)
 
     dcfg = GrayScottConfig(**OmegaConf.to_container(cfg.data, resolve=True))
     train_loader = make_loader(dcfg)
-    val_loader = make_loader(GrayScottConfig(**{**dcfg.__dict__, "split": "valid",
-                                                "epoch_size": dcfg.batch_size * 10}), shuffle=False)
-    print(f"[gs] {len(train_loader.dataset.files)} train hdf5 | "
-          f"clip=[{dcfg.channels},{dcfg.n_frames},{dcfg.img_size},{dcfg.img_size}] "
-          f"stride={dcfg.time_stride} | {len(train_loader)} steps/epoch", flush=True)
+    val_loader = make_loader(
+        GrayScottConfig(
+            **{**dcfg.__dict__, "split": "valid", "epoch_size": dcfg.batch_size * 10}
+        ),
+        shuffle=False,
+    )
+    print(
+        f"[gs] {len(train_loader.dataset.files)} train hdf5 | "
+        f"clip=[{dcfg.channels},{dcfg.n_frames},{dcfg.img_size},{dcfg.img_size}] "
+        f"stride={dcfg.time_stride} | {len(train_loader)} steps/epoch",
+        flush=True,
+    )
 
     encoder = build_encoder(cfg.model).to(device)
     jepa = build_jepa(encoder, cfg.model).to(device)
-    print(f"[gs] params: {sum(p.numel() for p in jepa.parameters()) / 1e6:.2f}M", flush=True)
+    print(
+        f"[gs] params: {sum(p.numel() for p in jepa.parameters()) / 1e6:.2f}M",
+        flush=True,
+    )
 
     opt = torch.optim.Adam(jepa.parameters(), lr=cfg.optim.lr)
     use_amp = bool(cfg.training.use_amp) and device.type == "cuda"
-    amp_dtype = torch.bfloat16 if cfg.training.get("dtype", "bfloat16") == "bfloat16" else torch.float16
-    scaler = torch.amp.GradScaler(device.type, enabled=use_amp and amp_dtype == torch.float16)
+    amp_dtype = (
+        torch.bfloat16
+        if cfg.training.get("dtype", "bfloat16") == "bfloat16"
+        else torch.float16
+    )
+    scaler = torch.amp.GradScaler(
+        device.type, enabled=use_amp and amp_dtype == torch.float16
+    )
 
     ckpt_dir = folder or cfg.meta.ckpt_dir
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -103,40 +124,69 @@ def run(fname="examples/gray_scott/cfgs/train.yaml", cfg=None, folder=None, **ov
         jepa.train()
         t0 = time.time()
         for batch in train_loader:
-            x = batch["video"].to(device, non_blocking=True)        # [B,2,T,H,W]
+            x = batch["video"].to(device, non_blocking=True)  # [B,2,T,H,W]
             opt.zero_grad(set_to_none=True)
             with torch.amp.autocast(device.type, enabled=use_amp, dtype=amp_dtype):
                 _, (jepa_loss, regl, _, _, pl) = jepa.unroll(
-                    x, actions=None, nsteps=cfg.model.steps,
-                    unroll_mode="parallel", compute_loss=True, return_all_steps=False)
+                    x,
+                    actions=None,
+                    nsteps=cfg.model.steps,
+                    unroll_mode="parallel",
+                    compute_loss=True,
+                    return_all_steps=False,
+                )
             if scaler.is_enabled():
-                scaler.scale(jepa_loss).backward(); scaler.step(opt); scaler.update()
+                scaler.scale(jepa_loss).backward()
+                scaler.step(opt)
+                scaler.update()
             else:
-                jepa_loss.backward(); opt.step()
+                jepa_loss.backward()
+                opt.step()
             gstep += 1
             if gstep % cfg.logging.log_every == 0:
-                print(f"e{epoch} s{gstep} loss={jepa_loss.item():.4f} "
-                      f"vc={regl.item():.4f} pred={pl.item():.4f}", flush=True)
+                print(
+                    f"e{epoch} s{gstep} loss={jepa_loss.item():.4f} "
+                    f"vc={regl.item():.4f} pred={pl.item():.4f}",
+                    flush=True,
+                )
 
         # val
-        jepa.eval(); vl = 0.0; nb = 0
+        jepa.eval()
+        vl = 0.0
+        nb = 0
         with torch.no_grad():
             for batch in val_loader:
                 x = batch["video"].to(device)
                 with torch.amp.autocast(device.type, enabled=use_amp, dtype=amp_dtype):
-                    _, (jl, _, _, _, _) = jepa.unroll(x, actions=None, nsteps=cfg.model.steps,
-                                                      unroll_mode="parallel", compute_loss=True)
-                vl += jl.item(); nb += 1
-        print(f"[epoch {epoch}] {time.time() - t0:.0f}s | val_loss={vl / max(nb, 1):.4f}", flush=True)
-        torch.save({"epoch": epoch,
-                    "encoder": encoder.state_dict(),
-                    "jepa": jepa.state_dict(),
-                    "cfg": OmegaConf.to_container(cfg, resolve=True)},
-                   os.path.join(ckpt_dir, "latest.pth.tar"))
+                    _, (jl, _, _, _, _) = jepa.unroll(
+                        x,
+                        actions=None,
+                        nsteps=cfg.model.steps,
+                        unroll_mode="parallel",
+                        compute_loss=True,
+                    )
+                vl += jl.item()
+                nb += 1
+        print(
+            f"[epoch {epoch}] {time.time() - t0:.0f}s | val_loss={vl / max(nb, 1):.4f}",
+            flush=True,
+        )
+        torch.save(
+            {
+                "epoch": epoch,
+                "encoder": encoder.state_dict(),
+                "jepa": jepa.state_dict(),
+                "cfg": OmegaConf.to_container(cfg, resolve=True),
+            },
+            os.path.join(ckpt_dir, "latest.pth.tar"),
+        )
     print(f"[gs] done -> {ckpt_dir}/latest.pth.tar", flush=True)
 
 
 if __name__ == "__main__":
-    fname = sys.argv[sys.argv.index("--fname") + 1] if "--fname" in sys.argv \
+    fname = (
+        sys.argv[sys.argv.index("--fname") + 1]
+        if "--fname" in sys.argv
         else "examples/gray_scott/cfgs/train.yaml"
+    )
     run(fname=fname)

@@ -12,7 +12,6 @@ Expected data_dir contents (from dfaust.is.tue.mpg.de registrations download):
 """
 
 import argparse
-import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -60,9 +59,11 @@ def load_npz_registrations(data_dir: Path):
             "vertices": data["vertices"] if "vertices" in data else data[data.files[0]],
             "subject": parts[0] if len(parts) > 1 else "unknown",
             "action": parts[1] if len(parts) > 1 else key,
-            "n_frames": data["vertices"].shape[0]
-            if "vertices" in data
-            else data[data.files[0]].shape[0],
+            "n_frames": (
+                data["vertices"].shape[0]
+                if "vertices" in data
+                else data[data.files[0]].shape[0]
+            ),
         }
     return sequences
 
@@ -113,8 +114,10 @@ def print_dataset_stats(sequences: dict):
 
     print(f"\nFrames per sequence:")
     frame_counts = [s["n_frames"] for s in sequences.values()]
-    print(f"  Min: {min(frame_counts)}, Max: {max(frame_counts)}, "
-          f"Mean: {np.mean(frame_counts):.0f}, Total: {sum(frame_counts)}")
+    print(
+        f"  Min: {min(frame_counts)}, Max: {max(frame_counts)}, "
+        f"Mean: {np.mean(frame_counts):.0f}, Total: {sum(frame_counts)}"
+    )
 
     print("\nSubject × Action matrix:")
     print(f"{'':>12}", end="")
@@ -194,7 +197,12 @@ def visualize_motion_heatmap(vertices_seq, title="Per-vertex displacement"):
     axes[1].set_xlabel("Mean displacement per frame")
     axes[1].set_ylabel("Count (vertices)")
     axes[1].set_title("Distribution of vertex mobility")
-    axes[1].axvline(mean_motion.mean(), color="r", linestyle="--", label=f"mean={mean_motion.mean():.4f}")
+    axes[1].axvline(
+        mean_motion.mean(),
+        color="r",
+        linestyle="--",
+        label=f"mean={mean_motion.mean():.4f}",
+    )
     axes[1].legend()
 
     fig.suptitle(title)
@@ -207,9 +215,7 @@ def visualize_action_comparison(sequences: dict, n_frames=5):
     subjects = sorted(set(s["subject"] for s in sequences.values()))
     subject = subjects[0]
 
-    subject_seqs = {
-        k: v for k, v in sequences.items() if v["subject"] == subject
-    }
+    subject_seqs = {k: v for k, v in sequences.items() if v["subject"] == subject}
     actions = sorted(subject_seqs.keys())[:6]
 
     fig = plt.figure(figsize=(4 * len(actions), 4))
@@ -296,8 +302,12 @@ def main():
     print(f"  Vertex range X: [{v[:, :, 0].min():.3f}, {v[:, :, 0].max():.3f}]")
     print(f"  Vertex range Y: [{v[:, :, 1].min():.3f}, {v[:, :, 1].max():.3f}]")
     print(f"  Vertex range Z: [{v[:, :, 2].min():.3f}, {v[:, :, 2].max():.3f}]")
-    print(f"  Mean inter-frame displacement: {np.linalg.norm(np.diff(v, axis=0), axis=-1).mean():.5f}")
-    print(f"  Max inter-frame displacement:  {np.linalg.norm(np.diff(v, axis=0), axis=-1).max():.5f}")
+    print(
+        f"  Mean inter-frame displacement: {np.linalg.norm(np.diff(v, axis=0), axis=-1).mean():.5f}"
+    )
+    print(
+        f"  Max inter-frame displacement:  {np.linalg.norm(np.diff(v, axis=0), axis=-1).max():.5f}"
+    )
 
     if not args.no_show:
         plt.show()

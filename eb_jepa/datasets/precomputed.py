@@ -26,7 +26,6 @@ import torch
 
 from eb_jepa.datasets.two_rooms.normalizer import Normalizer
 from eb_jepa.datasets.two_rooms.utils import update_config_from_yaml
-from eb_jepa.datasets.two_rooms.wall_dataset import WallDataset, WallDatasetConfig
 from eb_jepa.logging import get_logger
 
 logger = get_logger(__name__)
@@ -47,19 +46,13 @@ def _resolve_dataset(env_name):
     when actually used (and each loads its own dependencies).
     """
     if env_name == "two_rooms":
-        from eb_jepa.datasets.two_rooms.wall_dataset import (
-            WallDataset as DatasetClass,
-        )
+        from eb_jepa.datasets.two_rooms.wall_dataset import WallDataset as DatasetClass
         from eb_jepa.datasets.two_rooms.wall_dataset import (
             WallDatasetConfig as ConfigClass,
         )
     elif env_name == "maze":
-        from eb_jepa.datasets.maze.maze_dataset import (
-            MazeDataset as DatasetClass,
-        )
-        from eb_jepa.datasets.maze.maze_dataset import (
-            MazeDatasetConfig as ConfigClass,
-        )
+        from eb_jepa.datasets.maze.maze_dataset import MazeDataset as DatasetClass
+        from eb_jepa.datasets.maze.maze_dataset import MazeDatasetConfig as ConfigClass
     else:
         raise ValueError(
             f"Unknown env_name={env_name!r}; expected 'two_rooms' or 'maze'"
@@ -142,7 +135,9 @@ class AsyncChunkGenerator:
             n = per + (1 if i < rem else 0)
             if n > 0:
                 futures.append(
-                    self.executor.submit(_generate_part, seed_base + i, n, self._dtype_name)
+                    self.executor.submit(
+                        _generate_part, seed_base + i, n, self._dtype_name
+                    )
                 )
         return futures
 
@@ -198,15 +193,25 @@ class PipelineManager:
     VRAM-staging machinery.
     """
 
-    def __init__(self, env_config_dict, chunk_size, device, dtype, num_workers,
-                 generator=None, env_name="two_rooms"):
+    def __init__(
+        self,
+        env_config_dict,
+        chunk_size,
+        device,
+        dtype,
+        num_workers,
+        generator=None,
+        env_name="two_rooms",
+    ):
         self.chunk_size = chunk_size
         self.device = device
         self.dtype = dtype
         self.generator = (
             generator
             if generator is not None
-            else AsyncChunkGenerator(env_name, env_config_dict, num_workers, dtype=dtype)
+            else AsyncChunkGenerator(
+                env_name, env_config_dict, num_workers, dtype=dtype
+            )
         )
         self.transfer_stream = torch.cuda.Stream(device=device)
         self._transfer_executor = ThreadPoolExecutor(max_workers=1)
@@ -224,7 +229,9 @@ class PipelineManager:
     def _transfer_async_thread(self, cpu_chunk):
         with torch.cuda.stream(self.transfer_stream):
             pinned = {k: v.pin_memory() for k, v in cpu_chunk.items()}
-            gpu_chunk = {k: v.to(self.device, non_blocking=True) for k, v in pinned.items()}
+            gpu_chunk = {
+                k: v.to(self.device, non_blocking=True) for k, v in pinned.items()
+            }
         self.transfer_stream.synchronize()
         del cpu_chunk
         return gpu_chunk
@@ -292,8 +299,15 @@ class PipelineLoader:
     each subsequent epoch — triggers a swap so training always sees fresh data.
     """
 
-    def __init__(self, manager, batch_size, epoch_size, drop_last=True, normalizer=None,
-                 shuffle=True):
+    def __init__(
+        self,
+        manager,
+        batch_size,
+        epoch_size,
+        drop_last=True,
+        normalizer=None,
+        shuffle=True,
+    ):
         self.manager = manager
         self.batch_size = batch_size
         self.epoch_size = epoch_size

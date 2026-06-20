@@ -7,6 +7,7 @@ that makes the result meaningful: the frozen SSL encoder vs a random-encoder flo
 
 Run:  python -m examples.pointcloud.eval --ckpt <.../latest.pth.tar>
 """
+
 import sys
 
 import numpy as np
@@ -25,7 +26,9 @@ def extract_features(encoder, split, dcfg, device):
     canonical sampling per shape."""
     cfg = PointCloudConfig(**{**dcfg, "split": split, "mode": "supervised"})
     ds = PointCloudDataset(cfg)
-    loader = torch.utils.data.DataLoader(ds, batch_size=256, shuffle=False, num_workers=8)
+    loader = torch.utils.data.DataLoader(
+        ds, batch_size=256, shuffle=False, num_workers=8
+    )
     X, y = [], []
     for xb, yb in loader:
         X.append(encoder.represent(xb.to(device)).cpu().numpy())
@@ -46,7 +49,9 @@ def probe(Xtr, ytr, Xte, yte, n_classes):
     To make the number meaningful, also run this probe on a RANDOM untrained
     encoder (floor), and ideally compare rotate=none|z|so3 checkpoints — accuracy
     should drop monotonically as more rotation invariance is demanded."""
-    raise NotImplementedError("TODO: implement the linear probe + accuracy (see docstring)")
+    raise NotImplementedError(
+        "TODO: implement the linear probe + accuracy (see docstring)"
+    )
 
 
 def main():
@@ -56,7 +61,8 @@ def main():
     state = torch.load(ckpt, map_location=device, weights_only=False)
     cfg = OmegaConf.create(state["cfg"])
     encoder = build_encoder(cfg.model).to(device)
-    encoder.load_state_dict(state["encoder"]); encoder.eval()
+    encoder.load_state_dict(state["encoder"])
+    encoder.eval()
 
     dcfg = OmegaConf.to_container(cfg.data, resolve=True)
     Xtr, ytr = extract_features(encoder, "train", dcfg, device)

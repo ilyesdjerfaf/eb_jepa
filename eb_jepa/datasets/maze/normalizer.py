@@ -16,7 +16,7 @@ class MazeNormalizer:
         self.img_size = img_size
         # Uniform-on-[0, img_size) → mean (img_size-1)/2, std img_size/sqrt(12)
         mid = (img_size - 1) / 2.0
-        std = img_size / (12.0 ** 0.5)
+        std = img_size / (12.0**0.5)
         self.location_mean = torch.tensor([mid, mid])
         self.location_std = torch.tensor([std, std])
 

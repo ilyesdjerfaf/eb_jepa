@@ -11,6 +11,7 @@ latent->field DECODER and the VRMSE metric that makes the comparison meaningful.
 
 Run:  python -m examples.gray_scott.eval --ckpt <.../latest.pth.tar> --H 10
 """
+
 import sys
 
 import numpy as np
@@ -20,7 +21,7 @@ from omegaconf import OmegaConf
 from eb_jepa.datasets.gray_scott.dataset import GrayScottConfig, make_loader
 from examples.gray_scott.main import build_encoder, build_jepa
 
-C = 2            # context_length (StateOnlyPredictor predicts from the previous 2 frames)
+C = 2  # context_length (StateOnlyPredictor predicts from the previous 2 frames)
 
 
 def load_jepa(ckpt, device):
@@ -44,9 +45,15 @@ def rollout_latents(jepa, x, H, device):
     in latent space (``ctxt_window_time=C`` — the StateOnlyPredictor needs 2
     context frames, else the autoregressive loop yields an empty time axis).
     Returns the predicted latent sequence ``[B, D, C+H, h, w]``."""
-    pred, _ = jepa.unroll(x[:, :, :C], actions=None, nsteps=H,
-                          unroll_mode="autoregressive", ctxt_window_time=C,
-                          compute_loss=False, return_all_steps=False)
+    pred, _ = jepa.unroll(
+        x[:, :, :C],
+        actions=None,
+        nsteps=H,
+        unroll_mode="autoregressive",
+        ctxt_window_time=C,
+        compute_loss=False,
+        return_all_steps=False,
+    )
     return pred
 
 
@@ -64,7 +71,9 @@ def build_decoder(dstc, device):
     minimise ``MSE(decode(encode(field)), field)`` on the train split, then load
     its weights here. Its reconstruction error is the JEPA's irreducible field
     floor (``decode(encode(truth))``), so report that floor alongside the rollout."""
-    raise NotImplementedError("TODO: build + load the latent->field decoder (see docstring)")
+    raise NotImplementedError(
+        "TODO: build + load the latent->field decoder (see docstring)"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -98,12 +107,21 @@ def main():
     decoder = build_decoder(dstc, device)
     print(f"[gs-eval] loaded (epoch {ckpt.get('epoch')}), H={H}", flush=True)
 
-    dcfg = GrayScottConfig(split="valid", n_frames=C + H, time_stride=4,
-                           epoch_size=400, batch_size=8, num_workers=8)
+    dcfg = GrayScottConfig(
+        split="valid",
+        n_frames=C + H,
+        time_stride=4,
+        epoch_size=400,
+        batch_size=8,
+        num_workers=8,
+    )
     loader = make_loader(dcfg, shuffle=False)
     scores = vrmse_per_horizon(jepa, encoder, decoder, loader, device, H)
     for name, arr in scores.items():
-        print(f"   {name:14s} h1={arr[0]:.3f} h{H}={arr[-1]:.3f} | {np.round(arr, 3).tolist()}", flush=True)
+        print(
+            f"   {name:14s} h1={arr[0]:.3f} h{H}={arr[-1]:.3f} | {np.round(arr, 3).tolist()}",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ elastically off the walls. For each plausible base trajectory we build a
 """
 
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import torch
@@ -63,9 +63,13 @@ def simulate(start, vel, T, event=None, t_v=None, teleport_target=None):
         else:
             for d in range(2):  # elastic reflection
                 if p[d] < 0:
-                    p[d] = -p[d]; v[d] = -v[d]; bounced[t] = True
+                    p[d] = -p[d]
+                    v[d] = -v[d]
+                    bounced[t] = True
                 elif p[d] > MAXPOS:
-                    p[d] = 2 * MAXPOS - p[d]; v[d] = -v[d]; bounced[t] = True
+                    p[d] = 2 * MAXPOS - p[d]
+                    v[d] = -v[d]
+                    bounced[t] = True
         pos[t] = p
     return pos, bounced
 
@@ -83,7 +87,8 @@ def render_clip(positions: np.ndarray, digit: np.ndarray) -> np.ndarray:
             continue
         sr1, sc1 = sr0 + (dr1 - dr0), sc0 + (dc1 - dc0)
         video[0, t, dr0:dr1, dc0:dc1] = np.maximum(
-            video[0, t, dr0:dr1, dc0:dc1], digit[sr0:sr1, sc0:sc1])
+            video[0, t, dr0:dr1, dc0:dc1], digit[sr0:sr1, sc0:sc1]
+        )
     return video
 
 
@@ -126,9 +131,13 @@ def sample_pair(rng, violation, T, max_tries=200):
             t_v = cand[0]
             imposs, _ = simulate(start, vel, T, event="passthrough", t_v=t_v)
             return plaus, imposs, t_v
-        free = [t for t in range(lo, hi + 1)
-                if not any(bounced[max(0, t - 1):t + 2])
-                and 5 <= plaus[t, 0] <= MAXPOS - 5 and 5 <= plaus[t, 1] <= MAXPOS - 5]
+        free = [
+            t
+            for t in range(lo, hi + 1)
+            if not any(bounced[max(0, t - 1) : t + 2])
+            and 5 <= plaus[t, 0] <= MAXPOS - 5
+            and 5 <= plaus[t, 1] <= MAXPOS - 5
+        ]
         if not free:
             continue
         t_v = free[len(free) // 2]
@@ -139,10 +148,13 @@ def sample_pair(rng, violation, T, max_tries=200):
             for _ in range(80):
                 tgt = rng.uniform(0, MAXPOS, size=2)
                 if np.linalg.norm(tgt - plaus[t_v]) >= 18:
-                    imposs, _ = simulate(start, vel, T, event="teleport", t_v=t_v,
-                                         teleport_target=tgt)
+                    imposs, _ = simulate(
+                        start, vel, T, event="teleport", t_v=t_v, teleport_target=tgt
+                    )
                     return plaus, imposs, t_v
-    raise RuntimeError(f"could not sample a clean '{violation}' pair in {max_tries} tries")
+    raise RuntimeError(
+        f"could not sample a clean '{violation}' pair in {max_tries} tries"
+    )
 
 
 class ProceduralBouncingMNIST(Dataset):
@@ -151,7 +163,9 @@ class ProceduralBouncingMNIST(Dataset):
     Returns ``{"video": [1, T, 64, 64], "digit_location": [T, 8, 8]}``.
     """
 
-    def __init__(self, split="train", n_samples=9000, T=T_DEFAULT, seed=2025, map_size=8):
+    def __init__(
+        self, split="train", n_samples=9000, T=T_DEFAULT, seed=2025, map_size=8
+    ):
         self.T, self.map_size = T, map_size
         self.digits = load_mnist_digits("train" if split == "train" else "test")
         base = {"train": 0, "val": 7_000_000}[split]
@@ -164,13 +178,21 @@ class ProceduralBouncingMNIST(Dataset):
         rng = np.random.RandomState(self.seeds[idx])
         digit = self.digits[rng.randint(len(self.digits))]
         pos = sample_plausible(rng, self.T)
-        return {"video": torch.from_numpy(render_clip(pos, digit)),
-                "digit_location": torch.from_numpy(heatmap_from_positions(pos, self.map_size))}
+        return {
+            "video": torch.from_numpy(render_clip(pos, digit)),
+            "digit_location": torch.from_numpy(
+                heatmap_from_positions(pos, self.map_size)
+            ),
+        }
 
 
-def build_probe_pairs(n_pairs=200, T=T_DEFAULT, seed=12345,
-                      violations: Tuple[str, ...] = VIOLATIONS, digit_split="test"
-                      ) -> Dict[str, Dict[str, torch.Tensor]]:
+def build_probe_pairs(
+    n_pairs=200,
+    T=T_DEFAULT,
+    seed=12345,
+    violations: Tuple[str, ...] = VIOLATIONS,
+    digit_split="test",
+) -> Dict[str, Dict[str, torch.Tensor]]:
     """Held-out matched pairs per violation type: ``{viol: {plausible, impossible, t_v}}``."""
     digits = load_mnist_digits(digit_split)
     rng = np.random.RandomState(seed)
@@ -180,8 +202,12 @@ def build_probe_pairs(n_pairs=200, T=T_DEFAULT, seed=12345,
         for _ in range(n_pairs):
             digit = digits[rng.randint(len(digits))]
             pp, ip, t_v = sample_pair(rng, viol, T)
-            plaus.append(render_clip(pp, digit)); imposs.append(render_clip(ip, digit)); tvs.append(t_v)
-        out[viol] = {"plausible": torch.from_numpy(np.stack(plaus)),
-                     "impossible": torch.from_numpy(np.stack(imposs)),
-                     "t_v": torch.tensor(tvs)}
+            plaus.append(render_clip(pp, digit))
+            imposs.append(render_clip(ip, digit))
+            tvs.append(t_v)
+        out[viol] = {
+            "plausible": torch.from_numpy(np.stack(plaus)),
+            "impossible": torch.from_numpy(np.stack(imposs)),
+            "t_v": torch.tensor(tvs),
+        }
     return out

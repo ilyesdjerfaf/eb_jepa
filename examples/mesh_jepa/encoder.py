@@ -4,7 +4,6 @@ Wraps DiffusionNet with the JEPA 5D output convention.
 Registers Laplacian operators as persistent buffers (fixed topology).
 """
 
-import torch
 import torch.nn as nn
 
 from examples.mesh_jepa.diffusion_net import DiffusionNet

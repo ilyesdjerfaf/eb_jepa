@@ -9,6 +9,7 @@ Metric: 35-way accuracy on the OFFICIAL Speech Commands v2 test split
 
 Run:  python -m examples.audio.eval --ckpt <.../latest.pth.tar>
 """
+
 import sys
 
 import numpy as np
@@ -42,7 +43,9 @@ def probe(Xtr, ytr, Xte, yte, n_classes):
       * return a metrics dict, e.g. {"acc": ..., "balanced_acc": ..., "chance": ...}
     To make the number meaningful, also run this probe on (a) a RANDOM untrained
     encoder and (b) a supervised end-to-end baseline, and compare."""
-    raise NotImplementedError("TODO: implement the linear probe + 35-way accuracy (see docstring)")
+    raise NotImplementedError(
+        "TODO: implement the linear probe + 35-way accuracy (see docstring)"
+    )
 
 
 def main():
@@ -53,7 +56,8 @@ def main():
     cfg = OmegaConf.create(state["cfg"])
     dcfg = OmegaConf.to_container(cfg.data, resolve=True)
     encoder = build_encoder(cfg.model).to(device)
-    encoder.load_state_dict(state["encoder"]); encoder.eval()
+    encoder.load_state_dict(state["encoder"])
+    encoder.eval()
 
     Xtr, ytr = extract_features(encoder, "train", dcfg, device)
     Xte, yte = extract_features(encoder, "test", dcfg, device)

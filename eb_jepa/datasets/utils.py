@@ -43,6 +43,7 @@ def _resolve_env(env_name):
             WallDataset,
             WallDatasetConfig,
         )
+
         return WallDataset, WallDatasetConfig, Normalizer
     elif env_name == "maze":
         from eb_jepa.datasets.maze.maze_dataset import (
@@ -50,6 +51,7 @@ def _resolve_env(env_name):
             MazeDatasetConfig,
         )
         from eb_jepa.datasets.maze.normalizer import MazeNormalizer
+
         return MazeDataset, MazeDatasetConfig, MazeNormalizer
     else:
         raise ValueError(
@@ -73,8 +75,16 @@ def create_env(env_name, config, **kwargs):
         )
 
 
-def _init_gpu_stream(env_name, merged_cfg, config, chunk_size, device, dtype,
-                      gen_batch_size, num_gen_workers=0):
+def _init_gpu_stream(
+    env_name,
+    merged_cfg,
+    config,
+    chunk_size,
+    device,
+    dtype,
+    gen_batch_size,
+    num_gen_workers=0,
+):
     """Dispatch to the env-specific GPU stream pipeline."""
     if env_name == "two_rooms":
         from eb_jepa.datasets.two_rooms.gpu_precomputed import init_gpu_precomputed_data
@@ -107,8 +117,9 @@ def _init_gpu_stream(env_name, merged_cfg, config, chunk_size, device, dtype,
         raise ValueError(f"Unknown env_name={env_name!r}")
 
 
-def _init_cpu_stream(env_name, merged_cfg, config, chunk_size, device, dtype,
-                      num_gen_workers, normalizer):
+def _init_cpu_stream(
+    env_name, merged_cfg, config, chunk_size, device, dtype, num_gen_workers, normalizer
+):
     """Dispatch to the (env-agnostic) CPU stream pipeline."""
     from eb_jepa.datasets.precomputed import init_precomputed_data
 
@@ -276,8 +287,14 @@ def init_data(env_name, cfg_data=None, device=None, **kwargs):
             gen_batch_size = int(gen_batch_size) if gen_batch_size else None
             num_gen_workers = int(pipeline_cfg.get("num_gen_workers", 0))
             loader, manager = _init_gpu_stream(
-                env_name, merged_cfg, config, chunk_size, device, dtype,
-                gen_batch_size, num_gen_workers,
+                env_name,
+                merged_cfg,
+                config,
+                chunk_size,
+                device,
+                dtype,
+                gen_batch_size,
+                num_gen_workers,
             )
         elif backend == "cpu":
             num_gen_workers = int(pipeline_cfg.get("num_gen_workers", 16))
@@ -287,8 +304,14 @@ def init_data(env_name, cfg_data=None, device=None, **kwargs):
             else:
                 normalizer = NormalizerCls()
             loader, manager = _init_cpu_stream(
-                env_name, merged_cfg, config, chunk_size, device, dtype,
-                num_gen_workers, normalizer,
+                env_name,
+                merged_cfg,
+                config,
+                chunk_size,
+                device,
+                dtype,
+                num_gen_workers,
+                normalizer,
             )
         else:
             raise ValueError(

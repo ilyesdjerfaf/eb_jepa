@@ -128,9 +128,14 @@ def main():
     parser.add_argument(
         "--n_eigen", type=int, default=128, help="Number of Laplacian eigenvectors"
     )
-    parser.add_argument("--n_hks", type=int, default=16, help="Number of HKS time scales")
     parser.add_argument(
-        "--temporal_stride", type=int, default=4, help="Keep every Nth frame (4 = 15fps)"
+        "--n_hks", type=int, default=16, help="Number of HKS time scales"
+    )
+    parser.add_argument(
+        "--temporal_stride",
+        type=int,
+        default=4,
+        help="Keep every Nth frame (4 = 15fps)",
     )
     parser.add_argument(
         "--actions",
@@ -162,9 +167,7 @@ def main():
     print(f"  Loaded {len(sequences)} sequences, faces shape: {faces.shape}")
 
     if args.actions:
-        sequences = {
-            k: v for k, v in sequences.items() if v["action"] in args.actions
-        }
+        sequences = {k: v for k, v in sequences.items() if v["action"] in args.actions}
         print(f"  Filtered to {len(sequences)} sequences for actions: {args.actions}")
 
     # Step 2: Compute mean-pose Laplacian (for DiffusionNet operators)
@@ -175,7 +178,9 @@ def main():
     mean_eigenvalues, mean_eigenvectors = eigendecompose(L, M, n_eigen=args.n_eigen)
     mass = np.array(M.diagonal(), dtype=np.float32)
     print(f"  Vertices: {mean_pose.shape[0]}")
-    print(f"  Eigenvalues range: [{mean_eigenvalues[0]:.6f}, {mean_eigenvalues[-1]:.2f}]")
+    print(
+        f"  Eigenvalues range: [{mean_eigenvalues[0]:.6f}, {mean_eigenvalues[-1]:.2f}]"
+    )
 
     # Save operators (used by DiffusionNet for diffusion)
     np.savez(
@@ -188,7 +193,9 @@ def main():
     print(f"  Saved operators to {out_dir / 'operators.npz'}")
 
     # Step 3: Process each sequence (normalize + per-frame HKS)
-    print(f"\n[3/5] Processing sequences (stride={args.temporal_stride}, per-frame HKS)...")
+    print(
+        f"\n[3/5] Processing sequences (stride={args.temporal_stride}, per-frame HKS)..."
+    )
     print("  (Per-frame eigendecomposition — this may take a while)")
     manifest_rows = []
     total_frames_processed = 0
@@ -234,7 +241,9 @@ def main():
             }
         )
 
-        print(f"  [{i+1}/{len(sequences)}] {key}: {T} frames ({total_frames_processed} total)")
+        print(
+            f"  [{i+1}/{len(sequences)}] {key}: {T} frames ({total_frames_processed} total)"
+        )
 
     # Step 4: Write manifest
     print("\n[4/5] Writing manifest...")
@@ -242,7 +251,13 @@ def main():
     with open(manifest_path, "w", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["filename", "subject", "action", "n_frames", "n_frames_original"],
+            fieldnames=[
+                "filename",
+                "subject",
+                "action",
+                "n_frames",
+                "n_frames_original",
+            ],
         )
         writer.writeheader()
         writer.writerows(manifest_rows)

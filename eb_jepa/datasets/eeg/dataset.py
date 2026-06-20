@@ -16,6 +16,7 @@ Two access modes, both PROVIDED here (plumbing):
 The modelling choices on top of these windows (encoder, SSL objective, probe)
 live in ``examples/eeg/`` and are where the ``# TODO``s are.
 """
+
 import glob
 import os
 from dataclasses import dataclass
@@ -35,19 +36,19 @@ class EEGConfig:
     data_root: str = (
         "/lustre/work/pdl17890/udl806719/datasets/Neuro/TUAB-TUEV/TUAB_PREPROCESSED"
     )
-    split: str = "train"           # train | eval (patient-disjoint)
-    mode: str = "ssl"              # ssl (two views) | supervised/probe ((windows, label))
+    split: str = "train"  # train | eval (patient-disjoint)
+    mode: str = "ssl"  # ssl (two views) | supervised/probe ((windows, label))
     n_channels: int = 19
-    sfreq: int = 200               # Hz (TUAB_PREPROCESSED)
-    window_sec: float = 10.0       # window length in seconds
-    epoch_size: int = 20000        # virtual samples per epoch (random windows, ssl)
-    n_windows: int = 16            # evenly-spaced windows per recording (probe mode)
+    sfreq: int = 200  # Hz (TUAB_PREPROCESSED)
+    window_sec: float = 10.0  # window length in seconds
+    epoch_size: int = 20000  # virtual samples per epoch (random windows, ssl)
+    n_windows: int = 16  # evenly-spaced windows per recording (probe mode)
     batch_size: int = 128
     num_workers: int = 8
     # SSL augmentation strengths (per view, in z-scored units)
-    aug_noise_std: float = 0.1     # additive Gaussian noise std
+    aug_noise_std: float = 0.1  # additive Gaussian noise std
     aug_scale_jitter: float = 0.2  # per-channel amplitude scale ~ U(1-j, 1+j)
-    aug_chan_drop_p: float = 0.2   # prob a channel is zeroed
+    aug_chan_drop_p: float = 0.2  # prob a channel is zeroed
     aug_time_mask_frac: float = 0.2  # max fraction of timesteps masked
 
 
@@ -62,12 +63,14 @@ def _list_labelled(root: str, split: str):
     """list of (path, label) — label 0=normal, 1=abnormal — for the probe."""
     items = []
     for label, cls in [(0, "normal"), (1, "abnormal")]:
-        for p in sorted(glob.glob(os.path.join(root, split, cls, "**", "*.edf"),
-                                  recursive=True)):
+        for p in sorted(
+            glob.glob(os.path.join(root, split, cls, "**", "*.edf"), recursive=True)
+        ):
             items.append((p, label))
     if not items:
         raise FileNotFoundError(
-            f"No labelled .edf under {os.path.join(root, split)}/{{normal,abnormal}}")
+            f"No labelled .edf under {os.path.join(root, split)}/{{normal,abnormal}}"
+        )
     return items
 
 
@@ -84,7 +87,8 @@ class EEGDataset(torch.utils.data.Dataset):
     def __init__(self, cfg: EEGConfig):
         if pyedflib is None:
             raise ImportError(
-                "pyedflib is required to read EDF files (pip install pyedflib)")
+                "pyedflib is required to read EDF files (pip install pyedflib)"
+            )
         self.cfg = cfg
         self.window = int(cfg.window_sec * cfg.sfreq)
         if cfg.mode == "ssl":
@@ -116,7 +120,7 @@ class EEGDataset(torch.utils.data.Dataset):
             try:
                 if f.signals_in_file < cfg.n_channels:
                     continue
-                nsamp = int(min(f.getNSamples()[:cfg.n_channels]))
+                nsamp = int(min(f.getNSamples()[: cfg.n_channels]))
                 if nsamp <= self.window + 1:
                     continue
                 start = int(self._rng.integers(0, nsamp - self.window))
@@ -138,7 +142,7 @@ class EEGDataset(torch.utils.data.Dataset):
         try:
             if f.signals_in_file < cfg.n_channels:
                 return None
-            nsamp = int(min(f.getNSamples()[:cfg.n_channels]))
+            nsamp = int(min(f.getNSamples()[: cfg.n_channels]))
             if nsamp <= self.window + 1:
                 return None
             starts = np.linspace(0, nsamp - self.window, N).astype(int)
@@ -160,8 +164,9 @@ class EEGDataset(torch.utils.data.Dataset):
         x = x.copy()
         # amplitude scale jitter (per channel)
         if cfg.aug_scale_jitter > 0:
-            scale = 1.0 + rng.uniform(-cfg.aug_scale_jitter, cfg.aug_scale_jitter,
-                                      size=(cfg.n_channels, 1)).astype(np.float32)
+            scale = 1.0 + rng.uniform(
+                -cfg.aug_scale_jitter, cfg.aug_scale_jitter, size=(cfg.n_channels, 1)
+            ).astype(np.float32)
             x *= scale
         # additive Gaussian noise
         if cfg.aug_noise_std > 0:
@@ -175,7 +180,7 @@ class EEGDataset(torch.utils.data.Dataset):
             mlen = int(rng.uniform(0, cfg.aug_time_mask_frac) * self.window)
             if mlen > 0:
                 s = int(rng.integers(0, self.window - mlen))
-                x[:, s:s + mlen] = 0.0
+                x[:, s : s + mlen] = 0.0
         return x
 
     def __getitem__(self, i):
@@ -193,8 +198,9 @@ class EEGDataset(torch.utils.data.Dataset):
         w = self._read_recording_windows(path)
         ok = w is not None
         if not ok:
-            w = np.zeros((self.cfg.n_windows, self.cfg.n_channels, self.window),
-                         dtype=np.float32)
+            w = np.zeros(
+                (self.cfg.n_windows, self.cfg.n_channels, self.window), dtype=np.float32
+            )
         return torch.from_numpy(w), int(label), ok
 
 
@@ -202,7 +208,11 @@ def make_loader(cfg: EEGConfig, shuffle=None):
     ds = EEGDataset(cfg)
     is_train = cfg.mode == "ssl" and cfg.split == "train"
     return torch.utils.data.DataLoader(
-        ds, batch_size=cfg.batch_size,
+        ds,
+        batch_size=cfg.batch_size,
         shuffle=is_train if shuffle is None else shuffle,
-        num_workers=cfg.num_workers, pin_memory=True, drop_last=is_train,
-        persistent_workers=cfg.num_workers > 0)
+        num_workers=cfg.num_workers,
+        pin_memory=True,
+        drop_last=is_train,
+        persistent_workers=cfg.num_workers > 0,
+    )

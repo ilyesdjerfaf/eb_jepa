@@ -26,9 +26,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
-from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
-from sklearn.manifold import TSNE
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -38,8 +36,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from eb_jepa.datasets.mesh import DFAUSTDataset
-from eb_jepa.datasets.mesh.dataset import ACTION_LABELS
-
 
 # ============================================================
 # Model loading
@@ -83,8 +79,13 @@ def load_model(model_path, device):
         n_eigen = 128
 
     encoder = DiffusionNetEncoder(
-        in_channels=in_channels, out_dim=out_dim, width=width, depth=depth,
-        n_eigen=n_eigen, dropout=False, with_gradient_features=False,
+        in_channels=in_channels,
+        out_dim=out_dim,
+        width=width,
+        depth=depth,
+        n_eigen=n_eigen,
+        dropout=False,
+        with_gradient_features=False,
     )
     predictor = MeshPredictor(state_dim=out_dim, hidden_dim=out_dim)
     projector = Projector(f"{out_dim}-{out_dim*4}-{out_dim*4}")
@@ -149,7 +150,9 @@ def linear_probe(train_reps, train_labels, test_reps, test_labels, label_names):
     return {
         "train_acc": accuracy_score(train_labels, clf.predict(train_reps)),
         "test_acc": accuracy_score(test_labels, test_preds),
-        "report": classification_report(test_labels, test_preds, target_names=label_names, output_dict=True),
+        "report": classification_report(
+            test_labels, test_preds, target_names=label_names, output_dict=True
+        ),
         "confusion_matrix": confusion_matrix(test_labels, test_preds),
     }
 
@@ -256,18 +259,23 @@ def plot_temporal_horizon(results, output_dir):
 def random_rotation_matrix():
     """Generate a random SO(3) rotation matrix."""
     u1, u2, u3 = np.random.uniform(size=3)
-    q = np.array([
-        np.sqrt(1 - u1) * np.sin(2 * np.pi * u2),
-        np.sqrt(1 - u1) * np.cos(2 * np.pi * u2),
-        np.sqrt(u1) * np.sin(2 * np.pi * u3),
-        np.sqrt(u1) * np.cos(2 * np.pi * u3),
-    ])
+    q = np.array(
+        [
+            np.sqrt(1 - u1) * np.sin(2 * np.pi * u2),
+            np.sqrt(1 - u1) * np.cos(2 * np.pi * u2),
+            np.sqrt(u1) * np.sin(2 * np.pi * u3),
+            np.sqrt(u1) * np.cos(2 * np.pi * u3),
+        ]
+    )
     w, x, y, z = q
-    return np.array([
-        [1 - 2*(y*y + z*z), 2*(x*y - w*z), 2*(x*z + w*y)],
-        [2*(x*y + w*z), 1 - 2*(x*x + z*z), 2*(y*z - w*x)],
-        [2*(x*z - w*y), 2*(y*z + w*x), 1 - 2*(x*x + y*y)],
-    ], dtype=np.float32)
+    return np.array(
+        [
+            [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)],
+        ],
+        dtype=np.float32,
+    )
 
 
 @torch.no_grad()
@@ -379,7 +387,9 @@ def plot_robustness(results, output_dir):
     cosines = [results["vertex_noise"][n]["mean_cosine"] for n in noise_levels]
     stds = [results["vertex_noise"][n]["std_cosine"] for n in noise_levels]
 
-    axes[0].errorbar(noise_levels, cosines, yerr=stds, fmt="o-", color="coral", capsize=4)
+    axes[0].errorbar(
+        noise_levels, cosines, yerr=stds, fmt="o-", color="coral", capsize=4
+    )
     axes[0].set_xlabel("Noise Std")
     axes[0].set_ylabel("Cosine Similarity")
     axes[0].set_title("Robustness to Vertex Noise")
@@ -388,8 +398,13 @@ def plot_robustness(results, output_dir):
 
     # Temporal jitter bar
     jitter = results["temporal_jitter"]
-    axes[1].bar(["Original vs\nShifted +1 frame"], [jitter["mean_cosine"]],
-                yerr=[jitter["std_cosine"]], color="steelblue", capsize=5)
+    axes[1].bar(
+        ["Original vs\nShifted +1 frame"],
+        [jitter["mean_cosine"]],
+        yerr=[jitter["std_cosine"]],
+        color="steelblue",
+        capsize=5,
+    )
     axes[1].set_ylabel("Cosine Similarity")
     axes[1].set_title("Robustness to Temporal Jitter")
     axes[1].set_ylim(0, 1.05)
@@ -416,8 +431,13 @@ def train_supervised_baseline(dataset, encoder_class, device, operators, epochs=
 
     # Same architecture but output matches input feature dim (for reconstruction)
     baseline_encoder = DiffusionNetEncoder(
-        in_channels=feature_dim, out_dim=256, width=128, depth=4,
-        n_eigen=128, dropout=False, with_gradient_features=False,
+        in_channels=feature_dim,
+        out_dim=256,
+        width=128,
+        depth=4,
+        n_eigen=128,
+        dropout=False,
+        with_gradient_features=False,
     ).to(device)
     baseline_encoder.register_operators(
         operators["eigenvalues"].to(device),
@@ -437,7 +457,9 @@ def train_supervised_baseline(dataset, encoder_class, device, operators, epochs=
         lr=1e-3,
     )
 
-    loader = DataLoader(dataset, batch_size=16, shuffle=True, num_workers=0, drop_last=True)
+    loader = DataLoader(
+        dataset, batch_size=16, shuffle=True, num_workers=0, drop_last=True
+    )
 
     baseline_encoder.train()
     pred_head.train()
@@ -468,7 +490,9 @@ def train_supervised_baseline(dataset, encoder_class, device, operators, epochs=
     return baseline_encoder
 
 
-def abstraction_eval(jepa_encoder, dataset_train, dataset_test, device, operators, label_names):
+def abstraction_eval(
+    jepa_encoder, dataset_train, dataset_test, device, operators, label_names
+):
     """Compare JEPA encoder vs supervised baseline via probe accuracy and robustness."""
     # Train supervised baseline
     print("  Training supervised baseline (10 epochs)...")
@@ -477,20 +501,34 @@ def abstraction_eval(jepa_encoder, dataset_train, dataset_test, device, operator
     )
 
     # Extract representations for both
-    train_loader = DataLoader(dataset_train, batch_size=16, shuffle=False, num_workers=0)
+    train_loader = DataLoader(
+        dataset_train, batch_size=16, shuffle=False, num_workers=0
+    )
     test_loader = DataLoader(dataset_test, batch_size=16, shuffle=False, num_workers=0)
 
     print("  Extracting JEPA representations...")
-    jepa_train_reps, _, train_labels = extract_representations(jepa_encoder, train_loader, device)
-    jepa_test_reps, _, test_labels = extract_representations(jepa_encoder, test_loader, device)
+    jepa_train_reps, _, train_labels = extract_representations(
+        jepa_encoder, train_loader, device
+    )
+    jepa_test_reps, _, test_labels = extract_representations(
+        jepa_encoder, test_loader, device
+    )
 
     print("  Extracting baseline representations...")
-    base_train_reps, _, _ = extract_representations(baseline_encoder, train_loader, device)
-    base_test_reps, _, _ = extract_representations(baseline_encoder, test_loader, device)
+    base_train_reps, _, _ = extract_representations(
+        baseline_encoder, train_loader, device
+    )
+    base_test_reps, _, _ = extract_representations(
+        baseline_encoder, test_loader, device
+    )
 
     # Probe both
-    jepa_probe = linear_probe(jepa_train_reps, train_labels, jepa_test_reps, test_labels, label_names)
-    base_probe = linear_probe(base_train_reps, train_labels, base_test_reps, test_labels, label_names)
+    jepa_probe = linear_probe(
+        jepa_train_reps, train_labels, jepa_test_reps, test_labels, label_names
+    )
+    base_probe = linear_probe(
+        base_train_reps, train_labels, base_test_reps, test_labels, label_names
+    )
 
     # Robustness comparison (vertex noise)
     print("  Comparing robustness...")
@@ -680,7 +718,9 @@ def plot_collapse_dashboard(collapse, diffusion_times, band_energy, output_dir):
     ax2.semilogy(ev, "o-", color="coral", markersize=3)
     ax2.set_xlabel("Component")
     ax2.set_ylabel("Eigenvalue")
-    ax2.set_title(f"Covariance Eigenspectrum (eff. rank={collapse['effective_rank']:.1f})")
+    ax2.set_title(
+        f"Covariance Eigenspectrum (eff. rank={collapse['effective_rank']:.1f})"
+    )
     ax2.grid(True, alpha=0.3)
 
     # 3. Learned diffusion times per block
@@ -708,7 +748,9 @@ def plot_collapse_dashboard(collapse, diffusion_times, band_energy, output_dir):
     colors = ["#2196F3", "#FF9800", "#F44336"]
     ax5.bar(bands, energies, color=colors)
     ax5.set_ylabel("Mean Representation Variance")
-    ax5.set_title("Per-Frequency-Band Energy\n(which frequencies drive the representation?)")
+    ax5.set_title(
+        "Per-Frequency-Band Energy\n(which frequencies drive the representation?)"
+    )
 
     # 6. Summary
     ax6 = fig.add_subplot(3, 2, 6)
@@ -728,8 +770,15 @@ def plot_collapse_dashboard(collapse, diffusion_times, band_energy, output_dir):
     for band, energy in band_energy.items():
         summary += f"  {band}: {energy:.4f}\n"
 
-    ax6.text(0.05, 0.95, summary, transform=ax6.transAxes, fontsize=9,
-             verticalalignment="top", fontfamily="monospace")
+    ax6.text(
+        0.05,
+        0.95,
+        summary,
+        transform=ax6.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        fontfamily="monospace",
+    )
 
     plt.tight_layout()
     plt.savefig(output_dir / "6_collapse_dashboard.png", dpi=150, bbox_inches="tight")
@@ -758,8 +807,12 @@ def plot_training_curves(history, output_dir):
 
     # Total loss
     axes[0, 0].plot(epochs, total_loss, "k-", linewidth=2, label="Total")
-    axes[0, 0].plot(epochs, pred_loss, "-", color="coral", linewidth=1.5, label="Prediction")
-    axes[0, 0].plot(epochs, vc_loss, "-", color="steelblue", linewidth=1.5, label="VICReg")
+    axes[0, 0].plot(
+        epochs, pred_loss, "-", color="coral", linewidth=1.5, label="Prediction"
+    )
+    axes[0, 0].plot(
+        epochs, vc_loss, "-", color="steelblue", linewidth=1.5, label="VICReg"
+    )
     axes[0, 0].set_xlabel("Epoch")
     axes[0, 0].set_ylabel("Loss")
     axes[0, 0].set_title("Training Loss")
@@ -775,8 +828,12 @@ def plot_training_curves(history, output_dir):
 
     # VICReg breakdown
     if has_breakdown:
-        axes[1, 0].plot(epochs, std_loss, "-", color="#2196F3", linewidth=1.5, label="Std loss")
-        axes[1, 0].plot(epochs, cov_loss, "-", color="#FF9800", linewidth=1.5, label="Cov loss")
+        axes[1, 0].plot(
+            epochs, std_loss, "-", color="#2196F3", linewidth=1.5, label="Std loss"
+        )
+        axes[1, 0].plot(
+            epochs, cov_loss, "-", color="#FF9800", linewidth=1.5, label="Cov loss"
+        )
         axes[1, 0].set_xlabel("Epoch")
         axes[1, 0].set_ylabel("Loss")
         axes[1, 0].set_title("VICReg Components (std + cov)")
@@ -863,9 +920,9 @@ def main():
 
     if args.device == "auto":
         device = torch.device(
-            "cuda" if torch.cuda.is_available()
-            else "mps" if torch.backends.mps.is_available()
-            else "cpu"
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps" if torch.backends.mps.is_available() else "cpu"
         )
     else:
         device = torch.device(args.device)
@@ -879,24 +936,42 @@ def main():
 
     # Datasets
     train_set = DFAUSTDataset(
-        data_dir=args.data_dir, seq_len=16, feature_type=feature_type,
+        data_dir=args.data_dir,
+        seq_len=16,
+        feature_type=feature_type,
         subjects=[50002, 50004, 50007, 50009, 50020, 50021, 50022, 50025],
     )
     test_set = DFAUSTDataset(
-        data_dir=args.data_dir, seq_len=16, feature_type=feature_type,
+        data_dir=args.data_dir,
+        seq_len=16,
+        feature_type=feature_type,
         subjects=[50026, 50027],
     )
 
     # Register operators
     ops = train_set.get_operators()
     encoder.register_operators(
-        ops["eigenvalues"].to(device), ops["eigenvectors"].to(device), ops["mass"].to(device),
+        ops["eigenvalues"].to(device),
+        ops["eigenvectors"].to(device),
+        ops["mass"].to(device),
     )
 
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    train_loader = DataLoader(
+        train_set,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+    )
+    test_loader = DataLoader(
+        test_set,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+    )
 
-    actions_present = sorted(set(seq["action"] for seq in train_set.sequences + test_set.sequences))
+    actions_present = sorted(
+        set(seq["action"] for seq in train_set.sequences + test_set.sequences)
+    )
     label_names = actions_present
 
     print(f"  Train: {len(train_set)} clips, Test: {len(test_set)} clips")
@@ -919,16 +994,32 @@ def main():
     print("1. LINEAR PROBE")
     print("=" * 60)
 
-    train_reps, train_reps_pf, train_labels = extract_representations(encoder, train_loader, device)
-    test_reps, test_reps_pf, test_labels = extract_representations(encoder, test_loader, device)
+    train_reps, train_reps_pf, train_labels = extract_representations(
+        encoder, train_loader, device
+    )
+    test_reps, test_reps_pf, test_labels = extract_representations(
+        encoder, test_loader, device
+    )
 
-    encoder_probe = linear_probe(train_reps, train_labels, test_reps, test_labels, label_names)
-    print(f"  Encoder: train={encoder_probe['train_acc']:.1%}, test={encoder_probe['test_acc']:.1%}")
+    encoder_probe = linear_probe(
+        train_reps, train_labels, test_reps, test_labels, label_names
+    )
+    print(
+        f"  Encoder: train={encoder_probe['train_acc']:.1%}, test={encoder_probe['test_acc']:.1%}"
+    )
 
-    pred_train_reps, _ = extract_predictor_representations(encoder, predictor, train_loader, device)
-    pred_test_reps, _ = extract_predictor_representations(encoder, predictor, test_loader, device)
-    predictor_probe = linear_probe(pred_train_reps, train_labels, pred_test_reps, test_labels, label_names)
-    print(f"  Predictor: train={predictor_probe['train_acc']:.1%}, test={predictor_probe['test_acc']:.1%}")
+    pred_train_reps, _ = extract_predictor_representations(
+        encoder, predictor, train_loader, device
+    )
+    pred_test_reps, _ = extract_predictor_representations(
+        encoder, predictor, test_loader, device
+    )
+    predictor_probe = linear_probe(
+        pred_train_reps, train_labels, pred_test_reps, test_labels, label_names
+    )
+    print(
+        f"  Predictor: train={predictor_probe['train_acc']:.1%}, test={predictor_probe['test_acc']:.1%}"
+    )
 
     plot_linear_probe(encoder_probe, label_names, output_dir)
 
@@ -948,7 +1039,9 @@ def main():
     print("=" * 60)
 
     rotation_results = rotation_invariance_eval(encoder, test_set, device)
-    print(f"  Mean cosine sim: {rotation_results['mean_cosine']:.4f} +/- {rotation_results['std_cosine']:.4f}")
+    print(
+        f"  Mean cosine sim: {rotation_results['mean_cosine']:.4f} +/- {rotation_results['std_cosine']:.4f}"
+    )
     print(f"  Min cosine sim:  {rotation_results['min_cosine']:.4f}")
 
     # ==== 4. ROBUSTNESS ====
@@ -959,7 +1052,9 @@ def main():
     robustness_results = robustness_eval(encoder, test_set, device)
     for noise, vals in robustness_results["vertex_noise"].items():
         print(f"  Noise std={noise}: cosine={vals['mean_cosine']:.4f}")
-    print(f"  Temporal jitter: cosine={robustness_results['temporal_jitter']['mean_cosine']:.4f}")
+    print(
+        f"  Temporal jitter: cosine={robustness_results['temporal_jitter']['mean_cosine']:.4f}"
+    )
     plot_robustness(robustness_results, output_dir)
 
     # ==== 5. ABSTRACTION ====
@@ -988,7 +1083,9 @@ def main():
 
     diffusion_times = extract_diffusion_times(encoder)
     for i, t in enumerate(diffusion_times):
-        print(f"  Block {i} diffusion times: mean={t.mean():.4f}, range=[{t.min():.4f}, {t.max():.4f}]")
+        print(
+            f"  Block {i} diffusion times: mean={t.mean():.4f}, range=[{t.min():.4f}, {t.max():.4f}]"
+        )
 
     print("  Computing frequency band energy...")
     band_energy = frequency_band_energy(encoder, test_set, device)

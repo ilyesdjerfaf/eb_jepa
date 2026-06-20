@@ -14,6 +14,7 @@ marked `# TODO` below — that is the whole point of the track:
 Run:  python -m examples.audio.main --fname examples/audio/cfgs/train.yaml
       python -m examples.audio.main --fname examples/audio/cfgs/train.yaml mode=mel
 """
+
 import os
 import sys
 
@@ -70,38 +71,58 @@ def run(fname="examples/audio/cfgs/train.yaml", cfg=None, folder=None, **overrid
     if cfg is None:
         cfg = OmegaConf.load(fname)
         if overrides:
-            cfg = OmegaConf.merge(cfg, OmegaConf.from_dotlist([f"{k}={v}" for k, v in overrides.items()]))
+            cfg = OmegaConf.merge(
+                cfg, OmegaConf.from_dotlist([f"{k}={v}" for k, v in overrides.items()])
+            )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(cfg.meta.seed)
 
     dcfg = AudioConfig(**OmegaConf.to_container(cfg.data, resolve=True))
     dcfg.mode_ssl = "ssl"
     loader = make_loader(dcfg)
-    print(f"[audio] mode={dcfg.mode} | {dcfg.n_classes} keyword classes | "
-          f"train(ssl)={len(loader.dataset)} | device={device}", flush=True)
+    print(
+        f"[audio] mode={dcfg.mode} | {dcfg.n_classes} keyword classes | "
+        f"train(ssl)={len(loader.dataset)} | device={device}",
+        flush=True,
+    )
 
     encoder = build_encoder(cfg.model).to(device)
     ssl = build_ssl(encoder, cfg.model).to(device)
-    opt = torch.optim.AdamW(ssl.parameters(), lr=cfg.optim.lr, weight_decay=cfg.optim.weight_decay)
+    opt = torch.optim.AdamW(
+        ssl.parameters(), lr=cfg.optim.lr, weight_decay=cfg.optim.weight_decay
+    )
 
     ckpt_dir = folder or cfg.meta.ckpt_dir
     os.makedirs(ckpt_dir, exist_ok=True)
     for epoch in range(cfg.optim.epochs):
         ssl.train()
         for batch in loader:
-            batch = batch.to(device) if torch.is_tensor(batch) else [b.to(device) for b in batch]
+            batch = (
+                batch.to(device)
+                if torch.is_tensor(batch)
+                else [b.to(device) for b in batch]
+            )
             opt.zero_grad(set_to_none=True)
             loss, logs = ssl.compute_loss(batch)
-            loss.backward(); opt.step()
+            loss.backward()
+            opt.step()
         print(f"[audio] epoch {epoch} loss={loss.item():.4f} {logs}", flush=True)
-        torch.save({"epoch": epoch, "encoder": encoder.state_dict(),
-                    "cfg": OmegaConf.to_container(cfg, resolve=True)},
-                   os.path.join(ckpt_dir, "latest.pth.tar"))
+        torch.save(
+            {
+                "epoch": epoch,
+                "encoder": encoder.state_dict(),
+                "cfg": OmegaConf.to_container(cfg, resolve=True),
+            },
+            os.path.join(ckpt_dir, "latest.pth.tar"),
+        )
     print(f"[audio] done -> {ckpt_dir}/latest.pth.tar")
 
 
 if __name__ == "__main__":
-    fname = sys.argv[sys.argv.index("--fname") + 1] if "--fname" in sys.argv \
+    fname = (
+        sys.argv[sys.argv.index("--fname") + 1]
+        if "--fname" in sys.argv
         else "examples/audio/cfgs/train.yaml"
+    )
     overrides = dict(a.split("=", 1) for a in sys.argv[1:] if "=" in a)
     run(fname=fname, **overrides)

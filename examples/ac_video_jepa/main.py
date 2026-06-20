@@ -283,8 +283,9 @@ def run(
     value_target = copy.deepcopy(value_head)
     for p in value_target.parameters():
         p.requires_grad_(False)
-    value_optimizer = AdamW(value_head.parameters(), lr=cfg.model.get("value_lr", 1e-3),
-                            weight_decay=1e-5)
+    value_optimizer = AdamW(
+        value_head.parameters(), lr=cfg.model.get("value_lr", 1e-3), weight_decay=1e-5
+    )
     value_scheduler = CosineWithWarmup(value_optimizer, total_steps, warmup_ratio=0.1)
 
     # -- LOAD CKPT
@@ -296,9 +297,14 @@ def run(
         # model at a useful LR. Saves to this run's own folder, leaving the
         # source checkpoint untouched.
         from pathlib import Path as _P
+
         init_path = _P(cfg.meta.init_from)
         ckpt_info = load_checkpoint(
-            init_path, jepa, optimizer=None, scheduler=None, device=device,
+            init_path,
+            jepa,
+            optimizer=None,
+            scheduler=None,
+            device=device,
             strict=False,
         )
         start_epoch = 0
@@ -325,7 +331,9 @@ def run(
     if torch.cuda.is_available() and cfg.model.compile:
         compile_mode = cfg.model.get("compile_mode")
         compile_kwargs = {"mode": compile_mode} if compile_mode else {}
-        logger.info(f"✅ Compiling model with torch.compile (mode={compile_mode or 'default'})")
+        logger.info(
+            f"✅ Compiling model with torch.compile (mode={compile_mode or 'default'})"
+        )
         jepa = torch.compile(jepa, **compile_kwargs)
 
     # -- EVAL ONLY MODE
@@ -467,13 +475,20 @@ def run(
             # sees) onto the same TD target — so V is calibrated on imagined states.
             value_loss = torch.tensor(0.0, device=device)
             if value_coeff:
-                with torch.no_grad(), autocast(device.type, enabled=use_amp, dtype=dtype):
+                with (
+                    torch.no_grad(),
+                    autocast(device.type, enabled=use_amp, dtype=dtype),
+                ):
                     z_gt = jepa.encode(x).float()  # [B, C, T, h, w]
                     Tw = z_gt.shape[2]
                     z_roll, _ = jepa.unroll(
-                        x[:, :, :1], a, nsteps=Tw - 1,
-                        unroll_mode="autoregressive", ctxt_window_time=1,
-                        compute_loss=False, return_all_steps=False,
+                        x[:, :, :1],
+                        a,
+                        nsteps=Tw - 1,
+                        unroll_mode="autoregressive",
+                        ctxt_window_time=1,
+                        compute_loss=False,
+                        return_all_steps=False,
                     )  # [B, C, T, h, w] — model rollout from frame 0 with true actions
                     z_roll = z_roll.float()
                     g = z_gt[:, :, -1:].detach()  # goal latent
@@ -483,7 +498,7 @@ def run(
                     td_target = done + value_gamma * (1.0 - done) * v_next  # [B, T-1]
                 value_optimizer.zero_grad()
                 with autocast(device.type, enabled=use_amp, dtype=dtype):
-                    v_real = value_head(z_gt[:, :, :-1].detach(), g)   # [B, T-1]
+                    v_real = value_head(z_gt[:, :, :-1].detach(), g)  # [B, T-1]
                     v_roll = value_head(z_roll[:, :, :-1].detach(), g)  # [B, T-1]
                     value_loss = value_coeff * (
                         torch.nn.functional.mse_loss(v_real, td_target)
@@ -494,7 +509,9 @@ def run(
                 scaler.update()
                 value_scheduler.step()
                 with torch.no_grad():  # EMA update of the TD target net
-                    for pt, p in zip(value_target.parameters(), value_head.parameters()):
+                    for pt, p in zip(
+                        value_target.parameters(), value_head.parameters()
+                    ):
                         pt.mul_(0.99).add_(p.detach(), alpha=0.01)
                 total_loss = total_loss + value_loss.detach()
 

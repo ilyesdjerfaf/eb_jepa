@@ -13,6 +13,7 @@ See ``examples/ac_video_jepa/main_subgoal.py`` (train the high level) and
 ``eval_subgoal.py`` (A*-free closed-loop eval). Co-training the two levels is in
 ``main_cotrain.py``.
 """
+
 import torch
 import torch.nn as nn
 
@@ -35,9 +36,12 @@ class SubgoalPredictor(nn.Module):
         super().__init__()
         self.dim = dim
         self.net = nn.Sequential(
-            nn.Linear(dim + 2, hidden), nn.GELU(),
-            nn.Linear(hidden, hidden), nn.GELU(),
-            nn.Linear(hidden, hidden), nn.GELU(),
+            nn.Linear(dim + 2, hidden),
+            nn.GELU(),
+            nn.Linear(hidden, hidden),
+            nn.GELU(),
+            nn.Linear(hidden, hidden),
+            nn.GELU(),
             nn.Linear(hidden, 2),
         )
 
@@ -54,9 +58,15 @@ def fine_kstep_target(jepa, obs_init, dir_idx, K, cell_size, ctxt_window_time=1)
     a wall), so this K-step lookahead lets the low-level reacher score each direction
     by how close its K-step endpoint lands to the waypoint, avoiding dead-ends.
     obs_init: [B,C,1,H,W]; dir_idx: [B] long. Returns [B,D,1,1,1]."""
-    dirs = CARDINALS.to(obs_init.device)[dir_idx]          # [B,2]
-    a = (dirs * cell_size).unsqueeze(-1).repeat(1, 1, K)   # [B,2,K]
-    pred, _ = jepa.unroll(obs_init, a, nsteps=K, unroll_mode="autoregressive",
-                          ctxt_window_time=ctxt_window_time, compute_loss=False,
-                          return_all_steps=False)           # [B,D,1+K,1,1]
-    return pred[:, :, -1:]                                   # [B,D,1,1,1]
+    dirs = CARDINALS.to(obs_init.device)[dir_idx]  # [B,2]
+    a = (dirs * cell_size).unsqueeze(-1).repeat(1, 1, K)  # [B,2,K]
+    pred, _ = jepa.unroll(
+        obs_init,
+        a,
+        nsteps=K,
+        unroll_mode="autoregressive",
+        ctxt_window_time=ctxt_window_time,
+        compute_loss=False,
+        return_all_steps=False,
+    )  # [B,D,1+K,1,1]
+    return pred[:, :, -1:]  # [B,D,1,1,1]

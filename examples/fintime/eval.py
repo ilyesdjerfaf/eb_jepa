@@ -6,6 +6,7 @@ SSL encoder vs a random-encoder floor vs a supervised end-to-end baseline.
 
 Run:  python -m examples.fintime.eval --ckpt <.../latest.pth.tar>
 """
+
 import sys
 
 import numpy as np
@@ -20,10 +21,13 @@ from examples.fintime.main import build_encoder
 def extract_features(encoder, split, target, device):
     """Provided: frozen encoder -> [N, D] features + labels for `split`."""
     ds = FinTimeDataset(FinTimeConfig(split=split, mode="supervised", target=target))
-    loader = torch.utils.data.DataLoader(ds, batch_size=512, shuffle=False, num_workers=8)
+    loader = torch.utils.data.DataLoader(
+        ds, batch_size=512, shuffle=False, num_workers=8
+    )
     X, y = [], []
     for xb, yb in loader:
-        X.append(encoder.represent(xb.to(device)).cpu().numpy()); y.append(yb.numpy())
+        X.append(encoder.represent(xb.to(device)).cpu().numpy())
+        y.append(yb.numpy())
     return np.concatenate(X), np.concatenate(y)
 
 
@@ -43,13 +47,18 @@ def probe(Xtr, ytr, Xte, yte, target):
 
 def main():
     ckpt = sys.argv[sys.argv.index("--ckpt") + 1]
-    target = sys.argv[sys.argv.index("--target") + 1] if "--target" in sys.argv else "direction"
+    target = (
+        sys.argv[sys.argv.index("--target") + 1]
+        if "--target" in sys.argv
+        else "direction"
+    )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     state = torch.load(ckpt, map_location=device, weights_only=False)
     cfg = OmegaConf.create(state["cfg"])
     encoder = build_encoder(cfg.model).to(device)
-    encoder.load_state_dict(state["encoder"]); encoder.eval()
+    encoder.load_state_dict(state["encoder"])
+    encoder.eval()
 
     Xtr, ytr = extract_features(encoder, "train", target, device)
     Xte, yte = extract_features(encoder, "test", target, device)

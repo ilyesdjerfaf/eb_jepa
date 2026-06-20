@@ -177,7 +177,9 @@ def run(
                 context = predicted_states[:, :, -1:]
                 pred_step = predictor(context, None)[:, :, -1:]
                 predicted_states = torch.cat([predicted_states, pred_step], dim=2)
-                ploss += predcost(pred_step, state[:, :, i + 1 : i + 2]) / cfg.model.steps
+                ploss += (
+                    predcost(pred_step, state[:, :, i + 1 : i + 2]) / cfg.model.steps
+                )
 
             loss = rloss + ploss
             loss.backward()

@@ -97,15 +97,21 @@ class OfflineWallDataset(torch.utils.data.Dataset):
         d = self.data_dir
         n = self.num_samples
         self._states = np.memmap(
-            os.path.join(d, STATES_FILE), dtype=STATES_DTYPE, mode="r",
+            os.path.join(d, STATES_FILE),
+            dtype=STATES_DTYPE,
+            mode="r",
             shape=(n, *self.states_shape),
         )
         self._actions = np.memmap(
-            os.path.join(d, ACTIONS_FILE), dtype=ARR_DTYPE, mode="r",
+            os.path.join(d, ACTIONS_FILE),
+            dtype=ARR_DTYPE,
+            mode="r",
             shape=(n, *self.actions_shape),
         )
         self._locations = np.memmap(
-            os.path.join(d, LOCATIONS_FILE), dtype=ARR_DTYPE, mode="r",
+            os.path.join(d, LOCATIONS_FILE),
+            dtype=ARR_DTYPE,
+            mode="r",
             shape=(n, *self.locations_shape),
         )
         self._wall_x = np.memmap(
@@ -167,7 +173,7 @@ class OfflineChunkReader:
         self.num_samples = self.dataset.num_samples
         self.dtype = dtype
         self.shuffle = shuffle
-        self._perm = None          # permuted chunk indices for the current epoch
+        self._perm = None  # permuted chunk indices for the current epoch
         self._num_chunks = None
         self._rng = np.random.default_rng()
         # Background submit thread: overlaps the disk read of the next chunk with
@@ -421,15 +427,21 @@ def init_offline_stream_data(
 # --------------------------------------------------------------------------- #
 def _open_memmaps(data_dir, n, states_shape, actions_shape, locations_shape, mode):
     states = np.memmap(
-        os.path.join(data_dir, STATES_FILE), dtype=STATES_DTYPE, mode=mode,
+        os.path.join(data_dir, STATES_FILE),
+        dtype=STATES_DTYPE,
+        mode=mode,
         shape=(n, *states_shape),
     )
     actions = np.memmap(
-        os.path.join(data_dir, ACTIONS_FILE), dtype=ARR_DTYPE, mode=mode,
+        os.path.join(data_dir, ACTIONS_FILE),
+        dtype=ARR_DTYPE,
+        mode=mode,
         shape=(n, *actions_shape),
     )
     locations = np.memmap(
-        os.path.join(data_dir, LOCATIONS_FILE), dtype=ARR_DTYPE, mode=mode,
+        os.path.join(data_dir, LOCATIONS_FILE),
+        dtype=ARR_DTYPE,
+        mode=mode,
         shape=(n, *locations_shape),
     )
     wall_x = np.memmap(
@@ -505,9 +517,7 @@ def _generate_cpu(data_dir, n, merged_cfg, shapes, num_workers, seed, chunk):
         for fut in as_completed(futures):
             done += fut.result()
             rate = done / max(time.time() - t0, 1e-6)
-            print(
-                f"[cpu] {done}/{n} samples ({rate:.0f}/s)", flush=True
-            )
+            print(f"[cpu] {done}/{n} samples ({rate:.0f}/s)", flush=True)
 
 
 def _generate_gpu(data_dir, n, merged_cfg, shapes, gen_batch_size, seed):
@@ -630,7 +640,9 @@ def generate_and_save(
 
 def _parse_args():
     p = argparse.ArgumentParser(description="Pre-generate the two-rooms dataset.")
-    p.add_argument("--data-dir", required=True, help="Output directory for the dataset.")
+    p.add_argument(
+        "--data-dir", required=True, help="Output directory for the dataset."
+    )
     p.add_argument("--num-samples", type=int, default=1_200_000)
     p.add_argument("--backend", choices=["cpu", "gpu"], default="gpu")
     p.add_argument("--num-workers", type=int, default=16, help="CPU backend only.")

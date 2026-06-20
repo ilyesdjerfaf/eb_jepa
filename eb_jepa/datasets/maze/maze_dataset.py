@@ -28,11 +28,11 @@ from eb_jepa.datasets.maze.normalizer import MazeNormalizer
 
 
 class MazeSample(NamedTuple):
-    states: torch.Tensor     # (2, T, H, W) or (B, 2, T, H, W)
-    actions: torch.Tensor    # (2, T) or (B, 2, T)
+    states: torch.Tensor  # (2, T, H, W) or (B, 2, T, H, W)
+    actions: torch.Tensor  # (2, T) or (B, 2, T)
     locations: torch.Tensor  # (2, T) or (B, 2, T)
-    wall_x: torch.Tensor     # dummy
-    door_y: torch.Tensor     # dummy
+    wall_x: torch.Tensor  # dummy
+    door_y: torch.Tensor  # dummy
 
 
 @dataclass
@@ -152,7 +152,9 @@ def generate_path_and_actions(
         sol = solve_a_star(maze, start, goal)
         if sol is None:
             continue
-        path, action_ids = sol  # path: list of (r, c); len=path_len; actions len=path_len-1
+        path, action_ids = (
+            sol  # path: list of (r, c); len=path_len; actions len=path_len-1
+        )
         if len(path) >= min_required:
             break
     else:
@@ -271,7 +273,7 @@ class MazeDataset(torch.utils.data.Dataset):
 
         # Build tensors. All on CPU; normalisation/dtype handled below.
         positions_t = torch.from_numpy(pixel_positions)  # (T, 2) float32
-        actions_t = torch.from_numpy(action_vecs)        # (T-1, 2) float32
+        actions_t = torch.from_numpy(action_vecs)  # (T-1, 2) float32
         maze_t = torch.from_numpy(maze.astype(np.int64))  # (H, W) int64
 
         # Drop last frame so frames align with actions (T-1 of each).
@@ -292,7 +294,7 @@ class MazeDataset(torch.utils.data.Dataset):
         sl = cfg.sample_length
         max_start = (cfg.n_steps - 1) - sl  # inclusive upper bound
         start = int(self._rng.integers(0, max(1, max_start + 1)))
-        states = states[start : start + sl]      # (sl, 2, img, img)
+        states = states[start : start + sl]  # (sl, 2, img, img)
         actions_t = actions_t[start : start + sl]  # (sl, 2)
         positions_t = positions_t[start : start + sl]  # (sl, 2)
 
@@ -302,9 +304,9 @@ class MazeDataset(torch.utils.data.Dataset):
 
         # Reshape to eb_jepa convention: (B=1, C=2, T, H, W) for states,
         # (B=1, 2, T) for actions and locations.
-        states = states.permute(1, 0, 2, 3).unsqueeze(0)        # (1, 2, T, H, W)
-        actions_t = actions_t.permute(1, 0).unsqueeze(0)         # (1, 2, T)
-        positions_t = positions_t.permute(1, 0).unsqueeze(0)     # (1, 2, T)
+        states = states.permute(1, 0, 2, 3).unsqueeze(0)  # (1, 2, T, H, W)
+        actions_t = actions_t.permute(1, 0).unsqueeze(0)  # (1, 2, T)
+        positions_t = positions_t.permute(1, 0).unsqueeze(0)  # (1, 2, T)
 
         return MazeSample(
             states=states,

@@ -123,7 +123,9 @@ class MiniMLP(nn.Sequential):
             is_last = i + 2 == len(layer_sizes)
             if dropout and i > 0:
                 self.add_module(f"dropout_{i}", nn.Dropout(p=0.5))
-            self.add_module(f"linear_{i}", nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+            self.add_module(
+                f"linear_{i}", nn.Linear(layer_sizes[i], layer_sizes[i + 1])
+            )
             if not is_last:
                 self.add_module(f"relu_{i}", nn.ReLU())
 

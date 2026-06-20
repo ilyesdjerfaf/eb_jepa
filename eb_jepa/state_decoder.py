@@ -20,8 +20,10 @@ class GoalValueHead(nn.Module):
     def __init__(self, input_shape, hidden=512):  # input_shape = C (channel dim)
         super().__init__()
         self.mlp = nn.Sequential(
-            nn.Linear(2 * input_shape, hidden), nn.ReLU(inplace=True),
-            nn.Linear(hidden, hidden), nn.ReLU(inplace=True),
+            nn.Linear(2 * input_shape, hidden),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden, hidden),
+            nn.ReLU(inplace=True),
             nn.Linear(hidden, 1),
         )
 
@@ -34,11 +36,11 @@ class GoalValueHead(nn.Module):
             value: [B, T] in (0, 1)
         """
         bs, c, t, h, w = state.shape
-        s = state.mean(dim=(3, 4)).permute(0, 2, 1)        # [B, T, C]
-        g = goal.mean(dim=(3, 4)).permute(0, 2, 1)         # [B or 1, 1, C]
-        g = g.expand(bs, t, c)                             # [B, T, C]
-        feat = torch.cat([s, g], dim=-1)                   # [B, T, 2C]
-        v = self.mlp(feat).squeeze(-1)                     # [B, T]
+        s = state.mean(dim=(3, 4)).permute(0, 2, 1)  # [B, T, C]
+        g = goal.mean(dim=(3, 4)).permute(0, 2, 1)  # [B or 1, 1, C]
+        g = g.expand(bs, t, c)  # [B, T, C]
+        feat = torch.cat([s, g], dim=-1)  # [B, T, 2C]
+        v = self.mlp(feat).squeeze(-1)  # [B, T]
         return torch.sigmoid(v)
 
 

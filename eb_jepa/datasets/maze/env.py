@@ -212,7 +212,9 @@ class MazeEnv(gym.Env):
         curr_cell = self._pixel_to_cell(curr_dot_position)
         grid = self.maze_grid.detach().cpu().numpy().astype(np.uint8)
 
-        solved = solve_a_star(grid, tuple(curr_cell.tolist()), tuple(goal_cell.tolist()))
+        solved = solve_a_star(
+            grid, tuple(curr_cell.tolist()), tuple(goal_cell.tolist())
+        )
         if solved is None:
             # No A* route (e.g. the planner's position rounds onto a wall cell);
             # fall back to Euclidean so the metric stays finite, never a success.
@@ -251,9 +253,7 @@ class MazeEnv(gym.Env):
         for i in idxs:
             cell = np.asarray(path[i], dtype=np.int32)
             pix = cell_to_pixel(cell, self.cell_size)
-            waypoints.append(
-                torch.tensor(pix, device=self.device, dtype=torch.float32)
-            )
+            waypoints.append(torch.tensor(pix, device=self.device, dtype=torch.float32))
         return waypoints
 
     def astar_action_from_current(self):
@@ -315,9 +315,7 @@ class MazeEnv(gym.Env):
         Returns: (bs, t, 2, img_size, img_size)
         """
         if not isinstance(locations, torch.Tensor):
-            locations = torch.tensor(
-                locations, device=self.device, dtype=torch.float32
-            )
+            locations = torch.tensor(locations, device=self.device, dtype=torch.float32)
         bs, t, _ = locations.shape
         dot_imgs = render_dot(
             locations, self.img_size, self.agent_std, device=self.device

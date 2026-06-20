@@ -10,6 +10,7 @@ Data loading is PROVIDED (plumbing). The modelling choices on top of these clips
 (encoder, temporal JEPA objective, eval decoder/metric) live in
 ``examples/gray_scott/`` and are where the ``# TODO``s are.
 """
+
 import glob
 import os
 from dataclasses import dataclass
@@ -32,11 +33,11 @@ NT = 1001  # timesteps per trajectory
 @dataclass
 class GrayScottConfig:
     data_root: str = ROOT
-    split: str = "train"        # train | valid | test
-    channels: int = 2           # two chemical fields A, B
+    split: str = "train"  # train | valid | test
+    channels: int = 2  # two chemical fields A, B
     img_size: int = 128
-    n_frames: int = 16          # frames per clip
-    time_stride: int = 4        # spacing between frames (Gray-Scott evolves slowly)
+    n_frames: int = 16  # frames per clip
+    time_stride: int = 4  # spacing between frames (Gray-Scott evolves slowly)
     epoch_size: int = 8000
     batch_size: int = 8
     num_workers: int = 8
@@ -47,11 +48,14 @@ class GrayScottDataset(torch.utils.data.Dataset):
         if h5py is None:
             raise ImportError("h5py required (uv pip install h5py)")
         self.cfg = cfg
-        self.files = sorted(glob.glob(os.path.join(cfg.data_root, "data", cfg.split, "*.hdf5")))
+        self.files = sorted(
+            glob.glob(os.path.join(cfg.data_root, "data", cfg.split, "*.hdf5"))
+        )
         if not self.files:
             raise FileNotFoundError(
                 f"No .hdf5 in {os.path.join(cfg.data_root, 'data', cfg.split)} — "
-                "download the dataset first (see examples/gray_scott/README.md).")
+                "download the dataset first (see examples/gray_scott/README.md)."
+            )
         # (file -> n_traj) index — read n_traj cheaply from the header
         self.ntraj = []
         for p in self.files:
@@ -77,15 +81,20 @@ class GrayScottDataset(torch.utils.data.Dataset):
         tr = int(self._rng.integers(self.ntraj[fi]))
         t0 = int(self._rng.integers(0, NT - self.span + 1))
         sl = slice(t0, t0 + self.span, self.cfg.time_stride)
-        A = f["t0_fields/A"][tr, sl]                       # [T, 128, 128]
+        A = f["t0_fields/A"][tr, sl]  # [T, 128, 128]
         B = f["t0_fields/B"][tr, sl]
-        x = np.stack([A, B], axis=0).astype(np.float32)    # [2, T, 128, 128]
+        x = np.stack([A, B], axis=0).astype(np.float32)  # [2, T, 128, 128]
         x = (x - MEAN[:, None, None, None]) / STD[:, None, None, None]
         return {"video": torch.from_numpy(x)}
 
 
 def make_loader(cfg: GrayScottConfig, shuffle=True):
     return torch.utils.data.DataLoader(
-        GrayScottDataset(cfg), batch_size=cfg.batch_size, shuffle=shuffle,
-        num_workers=cfg.num_workers, pin_memory=True, drop_last=True,
-        persistent_workers=cfg.num_workers > 0)
+        GrayScottDataset(cfg),
+        batch_size=cfg.batch_size,
+        shuffle=shuffle,
+        num_workers=cfg.num_workers,
+        pin_memory=True,
+        drop_last=True,
+        persistent_workers=cfg.num_workers > 0,
+    )

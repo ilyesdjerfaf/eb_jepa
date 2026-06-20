@@ -5,7 +5,6 @@ No actions needed — the GRU uses the state itself as input.
 Compatible with JEPA's autoregressive unroll mode.
 """
 
-import torch
 import torch.nn as nn
 
 

@@ -14,6 +14,7 @@ Data loading is PROVIDED (plumbing). The modelling choices you make on top of
 these windows (encoder, SSL objective, forecast probe) live in
 ``examples/ltsf/`` and are where the ``# TODO``s are.
 """
+
 import os
 from dataclasses import dataclass
 
@@ -37,10 +38,10 @@ def _borders(name, seq_len):
 class LTSFConfig:
     csv: str = "/lustre/work/pdl17890/udl806719/datasets/LTSF/ETT-small/ETTh1.csv"
     name: str = "ETTh1"
-    flag: str = "train"        # train | val | test
-    mode: str = "forecast"     # ssl (unlabeled windows) | forecast ((x, y))
-    seq_len: int = 336         # input window length L
-    pred_len: int = 96         # forecast horizon H
+    flag: str = "train"  # train | val | test
+    mode: str = "forecast"  # ssl (unlabeled windows) | forecast ((x, y))
+    seq_len: int = 336  # input window length L
+    pred_len: int = 96  # forecast horizon H
     in_channels: int = 7
     batch_size: int = 64
     num_workers: int = 8
@@ -50,11 +51,12 @@ def _load_norm(cfg: LTSFConfig):
     """Return the normalized [T, C] array and the (border1, border2) for cfg.flag."""
     if not os.path.exists(cfg.csv):
         raise FileNotFoundError(
-            f"{cfg.csv} not found — download ailuntz/ETT-small (see examples/ltsf/README.md)")
+            f"{cfg.csv} not found — download ailuntz/ETT-small (see examples/ltsf/README.md)"
+        )
     df = pd.read_csv(cfg.csv)
-    data = df[ETT_CHANNELS].values.astype(np.float32)           # [T, 7]
+    data = df[ETT_CHANNELS].values.astype(np.float32)  # [T, 7]
     b1s, b2s = _borders(cfg.name, cfg.seq_len)
-    tr0, tr1 = b1s[0], b2s[0]                                    # StandardScaler on TRAIN only
+    tr0, tr1 = b1s[0], b2s[0]  # StandardScaler on TRAIN only
     mu = data[tr0:tr1].mean(0, keepdims=True)
     sd = data[tr0:tr1].std(0, keepdims=True) + 1e-8
     data = (data - mu) / sd
@@ -76,12 +78,12 @@ class LTSFDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, i):
         s = self.b1 + i
-        x = self.data[s:s + self.seq].T.copy()                  # [C, L]
+        x = self.data[s : s + self.seq].T.copy()  # [C, L]
         if self.cfg.mode == "ssl":
             # SSL: one input window (predictive JEPA) — for a two-view objective
             # return two augmented copies (see the # TODO in examples/ltsf/main.py).
             return torch.from_numpy(x)
-        y = self.data[s + self.seq:s + self.seq + self.pred].T.copy()  # [C, H]
+        y = self.data[s + self.seq : s + self.seq + self.pred].T.copy()  # [C, H]
         return torch.from_numpy(x), torch.from_numpy(y)
 
 
@@ -89,11 +91,14 @@ def make_loader(cfg: LTSFConfig, shuffle=None, drop_last=None):
     ds = LTSFDataset(cfg)
     is_train = cfg.flag == "train"
     return torch.utils.data.DataLoader(
-        ds, batch_size=cfg.batch_size,
+        ds,
+        batch_size=cfg.batch_size,
         shuffle=is_train if shuffle is None else shuffle,
-        num_workers=cfg.num_workers, pin_memory=True,
+        num_workers=cfg.num_workers,
+        pin_memory=True,
         drop_last=is_train if drop_last is None else drop_last,
-        persistent_workers=cfg.num_workers > 0)
+        persistent_workers=cfg.num_workers > 0,
+    )
 
 
 def make_ssl_loaders(cfg: LTSFConfig):

@@ -11,6 +11,7 @@ out-patient number is the only one that answers the transferability question.
 
 Run:  python -m examples.eeg.eval --ckpt <.../latest.pth.tar>
 """
+
 import sys
 
 import numpy as np
@@ -28,17 +29,19 @@ def extract_features(encoder, split, device):
     One embedding per recording: encode its N windows and mean-pool them.
     """
     ds = EEGDataset(EEGConfig(split=split, mode="probe"))
-    loader = torch.utils.data.DataLoader(ds, batch_size=8, shuffle=False, num_workers=16,
-                                         pin_memory=True)
+    loader = torch.utils.data.DataLoader(
+        ds, batch_size=8, shuffle=False, num_workers=16, pin_memory=True
+    )
     X, y = [], []
-    for wins, labels, ok in loader:          # wins: [B, N, C, T]
+    for wins, labels, ok in loader:  # wins: [B, N, C, T]
         B, N = wins.shape[0], wins.shape[1]
         flat = wins.reshape(B * N, *wins.shape[2:]).to(device, non_blocking=True)
         z = encoder.represent(flat).reshape(B, N, -1).mean(dim=1)  # [B, D]
         z = z.cpu().numpy()
         for k in range(B):
-            if bool(ok[k]):                  # drop unreadable recordings
-                X.append(z[k]); y.append(int(labels[k]))
+            if bool(ok[k]):  # drop unreadable recordings
+                X.append(z[k])
+                y.append(int(labels[k]))
     return np.stack(X), np.array(y)
 
 
@@ -57,7 +60,9 @@ def probe(Xtr, ytr, Xev, yev):
     To make the number meaningful, also run this same probe on (a) a RANDOM
     untrained encoder (floor) and (b) a supervised end-to-end baseline, and
     compare. The eval metrics are on held-out patients — stress that."""
-    raise NotImplementedError("TODO: implement the patient-disjoint probe + metric (see docstring)")
+    raise NotImplementedError(
+        "TODO: implement the patient-disjoint probe + metric (see docstring)"
+    )
 
 
 def main():
@@ -67,7 +72,8 @@ def main():
     state = torch.load(ckpt, map_location=device, weights_only=False)
     cfg = OmegaConf.create(state["cfg"])
     encoder = build_encoder(cfg.model).to(device)
-    encoder.load_state_dict(state["encoder"]); encoder.eval()
+    encoder.load_state_dict(state["encoder"])
+    encoder.eval()
 
     print("[eeg-eval] extracting TRAIN embeddings (fit set)...", flush=True)
     Xtr, ytr = extract_features(encoder, "train", device)

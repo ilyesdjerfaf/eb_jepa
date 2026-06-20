@@ -376,7 +376,9 @@ class GPUWallGenerator:
         sl = cfg.sample_length
         max_start = cfg.n_steps - sl  # exclusive upper bound, matches np.random.randint
         starts = torch.randint(0, max_start, (bs,), device=self.device)
-        tidx = starts[:, None] + torch.arange(sl, device=self.device)[None, :]  # (bs,sl)
+        tidx = (
+            starts[:, None] + torch.arange(sl, device=self.device)[None, :]
+        )  # (bs,sl)
         b_ix = torch.arange(bs, device=self.device)[:, None]  # (bs, 1)
 
         states = states[b_ix, tidx].permute(0, 2, 1, 3, 4)  # (bs, 2, sl, H, W)
@@ -396,9 +398,9 @@ class GPUWallGenerator:
     def _render_location(self, locations):
         # locations: (..., 2) -> (..., H, W) uint8 gaussian dot
         lead = locations.shape[:-1]
-        c = self._dot_grid.view(
-            *([1] * len(lead)), *self._dot_grid.shape
-        ).expand(*lead, *self._dot_grid.shape)
+        c = self._dot_grid.view(*([1] * len(lead)), *self._dot_grid.shape).expand(
+            *lead, *self._dot_grid.shape
+        )
         loc = locations.unsqueeze(-2).unsqueeze(-2)  # (..., 1, 1, 2)
         d2 = (c - loc).pow(2).sum(dim=-1)  # squared distance (..., H, W)
         img = torch.exp(-d2 / (2.0 * self.config.dot_std * self.config.dot_std)) * 255.0

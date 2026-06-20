@@ -16,6 +16,7 @@ marked `# TODO` below — that is the whole point of the track:
 
 Run:  python -m examples.pointcloud.main --fname examples/pointcloud/cfgs/train.yaml
 """
+
 import os
 import sys
 
@@ -60,17 +61,23 @@ def build_ssl(encoder, cfg):
     invariance (MSE) term is what pulls the two views of the same object together
     and makes the representation VIEW-INVARIANT. Return the scalar loss and a logs
     dict (e.g. the VICRegLoss component breakdown)."""
-    raise NotImplementedError("TODO: assemble the two-view VICReg objective (see docstring)")
+    raise NotImplementedError(
+        "TODO: assemble the two-view VICReg objective (see docstring)"
+    )
 
 
 # --------------------------------------------------------------------------- #
 # TRAINING LOOP  — provided
 # --------------------------------------------------------------------------- #
-def run(fname="examples/pointcloud/cfgs/train.yaml", cfg=None, folder=None, **overrides):
+def run(
+    fname="examples/pointcloud/cfgs/train.yaml", cfg=None, folder=None, **overrides
+):
     if cfg is None:
         cfg = OmegaConf.load(fname)
         if overrides:
-            cfg = OmegaConf.merge(cfg, OmegaConf.from_dotlist([f"{k}={v}" for k, v in overrides.items()]))
+            cfg = OmegaConf.merge(
+                cfg, OmegaConf.from_dotlist([f"{k}={v}" for k, v in overrides.items()])
+            )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(cfg.meta.seed)
 
@@ -81,25 +88,43 @@ def run(fname="examples/pointcloud/cfgs/train.yaml", cfg=None, folder=None, **ov
 
     encoder = build_encoder(cfg.model).to(device)
     ssl = build_ssl(encoder, cfg.model).to(device)
-    opt = torch.optim.AdamW(ssl.parameters(), lr=cfg.optim.lr, weight_decay=cfg.optim.weight_decay)
+    opt = torch.optim.AdamW(
+        ssl.parameters(), lr=cfg.optim.lr, weight_decay=cfg.optim.weight_decay
+    )
 
     ckpt_dir = folder or cfg.meta.ckpt_dir
     os.makedirs(ckpt_dir, exist_ok=True)
     for epoch in range(cfg.optim.epochs):
         ssl.train()
         for batch in loader:
-            batch = batch.to(device) if torch.is_tensor(batch) else [b.to(device) for b in batch]
+            batch = (
+                batch.to(device)
+                if torch.is_tensor(batch)
+                else [b.to(device) for b in batch]
+            )
             opt.zero_grad(set_to_none=True)
             loss, logs = ssl.compute_loss(batch)
-            loss.backward(); opt.step()
-        print(f"[pointcloud:{cfg.data.rotate}] epoch {epoch} loss={loss.item():.4f} {logs}", flush=True)
-        torch.save({"epoch": epoch, "encoder": encoder.state_dict(),
-                    "cfg": OmegaConf.to_container(cfg, resolve=True)},
-                   os.path.join(ckpt_dir, "latest.pth.tar"))
+            loss.backward()
+            opt.step()
+        print(
+            f"[pointcloud:{cfg.data.rotate}] epoch {epoch} loss={loss.item():.4f} {logs}",
+            flush=True,
+        )
+        torch.save(
+            {
+                "epoch": epoch,
+                "encoder": encoder.state_dict(),
+                "cfg": OmegaConf.to_container(cfg, resolve=True),
+            },
+            os.path.join(ckpt_dir, "latest.pth.tar"),
+        )
     print(f"[pointcloud] done -> {ckpt_dir}/latest.pth.tar")
 
 
 if __name__ == "__main__":
-    fname = sys.argv[sys.argv.index("--fname") + 1] if "--fname" in sys.argv \
+    fname = (
+        sys.argv[sys.argv.index("--fname") + 1]
+        if "--fname" in sys.argv
         else "examples/pointcloud/cfgs/train.yaml"
+    )
     run(fname=fname)

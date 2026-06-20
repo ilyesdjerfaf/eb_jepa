@@ -22,7 +22,6 @@ from eb_jepa.datasets.maze.maze_dataset import (
     MazeDatasetConfig,
     cell_to_pixel,
     generate_path_and_actions,
-    render_dot,
     render_wall_mask,
 )
 from eb_jepa.datasets.maze.normalizer import MazeNormalizer
@@ -70,8 +69,14 @@ def _maze_sample_part(seed, n):
 class GPUMazeGenerator:
     """Generate (B, 2, sample_length, H, W) chunks with GPU rendering."""
 
-    def __init__(self, config: MazeDatasetConfig, device, dtype, gen_batch_size=None,
-                 num_workers=0):
+    def __init__(
+        self,
+        config: MazeDatasetConfig,
+        device,
+        dtype,
+        gen_batch_size=None,
+        num_workers=0,
+    ):
         self.config = config
         self.device = torch.device(device)
         self.dtype = dtype
@@ -184,8 +189,8 @@ class GPUMazeGenerator:
         """positions: (B, T, 2) float on device → (B, T, img, img) uint8."""
         cfg = self.config
         grid = self._dot_grid.unsqueeze(0).unsqueeze(0)  # (1, 1, H, W, 2)
-        pos = positions.unsqueeze(-2).unsqueeze(-2)       # (B, T, 1, 1, 2)
-        d2 = (grid - pos).pow(2).sum(dim=-1)              # (B, T, H, W)
+        pos = positions.unsqueeze(-2).unsqueeze(-2)  # (B, T, 1, 1, 2)
+        d2 = (grid - pos).pow(2).sum(dim=-1)  # (B, T, H, W)
         img = torch.exp(-d2 / (2.0 * cfg.agent_std * cfg.agent_std)) * 255.0
         return img.clamp(0, 255).to(torch.uint8)
 
@@ -202,22 +207,22 @@ class GPUMazeGenerator:
         # Upload
         mazes_t = torch.from_numpy(mazes_np.astype(np.int64)).to(
             self.device, non_blocking=True
-        )                                                                # (B, H, W)
+        )  # (B, H, W)
         positions = torch.from_numpy(pixel_positions_np).to(
             self.device, non_blocking=True
-        )                                                                # (B, T, 2)
+        )  # (B, T, 2)
         actions = torch.from_numpy(action_vecs_np).to(
             self.device, non_blocking=True
-        )                                                                # (B, T-1, 2)
+        )  # (B, T-1, 2)
 
         # Drop last frame so positions align with actions
         positions = positions[:, :-1]  # (B, T-1, 2)
 
         # Render walls (static per sample) and agent (varies per timestep)
-        walls = self._render_walls_gpu(mazes_t)                # (B, img, img)
+        walls = self._render_walls_gpu(mazes_t)  # (B, img, img)
         T = positions.shape[1]
-        walls = walls.unsqueeze(1).expand(-1, T, -1, -1)        # (B, T, img, img)
-        agent = self._render_agent_gpu(positions)               # (B, T, img, img)
+        walls = walls.unsqueeze(1).expand(-1, T, -1, -1)  # (B, T, img, img)
+        agent = self._render_agent_gpu(positions)  # (B, T, img, img)
 
         # Stack channels: (B, T, 2, H, W)
         states = torch.stack([agent, walls], dim=2).float()
@@ -234,9 +239,9 @@ class GPUMazeGenerator:
         tidx = starts[:, None] + torch.arange(sl, device=self.device)[None, :]
         b_ix = torch.arange(bs, device=self.device)[:, None]
 
-        states_w = states[b_ix, tidx].permute(0, 2, 1, 3, 4)   # (B, 2, sl, H, W)
-        actions_w = actions[b_ix, tidx].permute(0, 2, 1)       # (B, 2, sl)
-        positions_w = positions[b_ix, tidx].permute(0, 2, 1)   # (B, 2, sl)
+        states_w = states[b_ix, tidx].permute(0, 2, 1, 3, 4)  # (B, 2, sl, H, W)
+        actions_w = actions[b_ix, tidx].permute(0, 2, 1)  # (B, 2, sl)
+        positions_w = positions[b_ix, tidx].permute(0, 2, 1)  # (B, 2, sl)
 
         # Dummies for WallSample compat
         wall_x = torch.zeros(bs, device=self.device)
@@ -279,13 +284,23 @@ class GPUMazePipelineManager:
     ``PipelineLoader`` consumes it unchanged.
     """
 
-    def __init__(self, config: MazeDatasetConfig, chunk_size, device, dtype,
-                 gen_batch_size=None, num_workers=0):
+    def __init__(
+        self,
+        config: MazeDatasetConfig,
+        chunk_size,
+        device,
+        dtype,
+        gen_batch_size=None,
+        num_workers=0,
+    ):
         self.chunk_size = chunk_size
         self.device = torch.device(device)
         self.dtype = dtype
         self.generator = GPUMazeGenerator(
-            config, device=self.device, dtype=dtype, gen_batch_size=gen_batch_size,
+            config,
+            device=self.device,
+            dtype=dtype,
+            gen_batch_size=gen_batch_size,
             num_workers=num_workers,
         )
         self.gen_stream = torch.cuda.Stream(device=self.device)

@@ -172,7 +172,9 @@ def _diagnose_world_model(agent, env, obs):
     position vs what the env would actually do (move / wall-stay). Localises the
     0%-success failure: model (wrong/zero predicted deltas) vs optimisation."""
     device = agent.device
-    cs = getattr(env, "cell_size", 1)  # maze-only attr; 1 for grid-free envs (two_rooms)
+    cs = getattr(
+        env, "cell_size", 1
+    )  # maze-only attr; 1 for grid-free envs (two_rooms)
     obs_tensor = (
         env.normalizer.normalize_state(
             obs.detach().clone().to(dtype=torch.float32, device=device)
@@ -199,7 +201,9 @@ def _diagnose_world_model(agent, env, obs):
     for name, (dr, dc) in dirs.items():
         act = torch.tensor(
             [[float(dr * cs)], [float(dc * cs)]], device=device
-        ).unsqueeze(0)  # [1, 2, 1]
+        ).unsqueeze(
+            0
+        )  # [1, 2, 1]
         with torch.no_grad():
             pred = agent.unroll(obs_tensor, act, repeat_batch=False)  # [1,D,1,H,W]
             pred_pos = (
@@ -259,7 +263,9 @@ def main_eval(
     task_spec = plan_cfg.get("task_specification", {})
     waypoint_mode = task_spec.get("waypoint_mode", False)
     waypoint_spacing = task_spec.get("waypoint_spacing", 4)
-    waypoint_reach = task_spec.get("waypoint_reach_cells", 1.5) * getattr(env, "cell_size", 1)
+    waypoint_reach = task_spec.get("waypoint_reach_cells", 1.5) * getattr(
+        env, "cell_size", 1
+    )
     waypoint_action_prior = task_spec.get("waypoint_action_prior", False)
     stall_escape = task_spec.get("stall_escape", False)
     stall_patience = int(task_spec.get("stall_patience", 3))
@@ -312,9 +318,7 @@ def main_eval(
             waypoints = env.compute_waypoints(waypoint_spacing)
             wp_idx = 0
             wp_pos = waypoints[wp_idx]
-            agent.set_goal(
-                env._render_dot_at(wp_pos).to(dtype=torch.float32), wp_pos
-            )
+            agent.set_goal(env._render_dot_at(wp_pos).to(dtype=torch.float32), wp_pos)
         else:
             agent.set_goal(
                 goal_img.detach().clone().to(dtype=torch.float32),
@@ -341,10 +345,10 @@ def main_eval(
         prev_elite_losses_mean = []
         prev_elite_losses_std = []
 
-        cur_prior = None      # A* cardinal toward current waypoint (× cell_size)
-        stall_count = 0       # consecutive steps with no GEODESIC progress
+        cur_prior = None  # A* cardinal toward current waypoint (× cell_size)
+        stall_count = 0  # consecutive steps with no GEODESIC progress
         best_dist = float("inf")  # best (smallest) geodesic dist-to-goal so far
-        escape_uses = 0       # how many steps used the A* fallback
+        escape_uses = 0  # how many steps used the A* fallback
 
         while steps_left > 0:
             # while (not done and steps_left > 0):
@@ -366,7 +370,7 @@ def main_eval(
                     # Cardinal direction (× cell_size) from current pos to the
                     # current waypoint = the A* move. Used to warm-start MPPI's
                     # mean (prior) and/or as the fallback when MPC stalls.
-                    delta = (waypoints[wp_idx] - env.dot_position)
+                    delta = waypoints[wp_idx] - env.dot_position
                     dr, dc = float(delta[0]), float(delta[1])
                     if abs(dr) >= abs(dc):
                         prior = [float(np.sign(dr)) * env.cell_size, 0.0]
@@ -546,7 +550,9 @@ def _main_eval_parallel(
             obs, _, _, _, info = env.step(np.zeros(env.action_space.shape[0]))
             goal_img = info["target_obs"].to(dtype=torch.float32)
             goal_enc = model.encode(
-                normalizer.normalize_state(goal_img.to(device)).unsqueeze(0).unsqueeze(2)
+                normalizer.normalize_state(goal_img.to(device))
+                .unsqueeze(0)
+                .unsqueeze(2)
             )  # (1, D, 1, H', W')
             obs_list.append(obs)
             goal_imgs.append(goal_img)
@@ -567,7 +573,9 @@ def _main_eval_parallel(
             obs_tensors = [
                 normalizer.normalize_state(
                     obs_list[k].to(dtype=torch.float32, device=device)
-                ).unsqueeze(0).unsqueeze(2)
+                )
+                .unsqueeze(0)
+                .unsqueeze(2)
                 for k in range(batch_K)
             ]
             obs_batch = torch.cat(obs_tensors, dim=0)  # (batch_K, C, 1, H, W)
@@ -577,7 +585,9 @@ def _main_eval_parallel(
             stds = max_std * torch.ones(batch_K, plan_length, action_dim, device=device)
 
             for _ in range(n_iters):
-                noise = torch.randn(batch_K, plan_length, num_samples, action_dim, device=device)
+                noise = torch.randn(
+                    batch_K, plan_length, num_samples, action_dim, device=device
+                )
                 actions_k = means.unsqueeze(2) + stds.unsqueeze(2) * noise
                 actions_flat = rearrange(actions_k, "k t s a -> (k s) a t")
 
@@ -592,14 +602,18 @@ def _main_eval_parallel(
                         return_all_steps=False,
                     )
 
-                goal_expanded = goal_enc_batch[:batch_K].repeat_interleave(num_samples, dim=0)
+                goal_expanded = goal_enc_batch[:batch_K].repeat_interleave(
+                    num_samples, dim=0
+                )
                 if goal_expanded.shape[2] != predicted_states.shape[2]:
                     goal_expanded = goal_expanded.expand(
                         -1, -1, predicted_states.shape[2], -1, -1
                     )
                 diff = torch.nn.functional.mse_loss(
                     goal_expanded, predicted_states, reduction="none"
-                ).mean(dim=(1, 3, 4))  # (batch_K*S, T)
+                ).mean(
+                    dim=(1, 3, 4)
+                )  # (batch_K*S, T)
                 costs_flat = diff.sum(dim=1) if sum_all_diffs else diff[:, -1]
                 costs = costs_flat.reshape(batch_K, num_samples)
 
@@ -623,8 +637,12 @@ def _main_eval_parallel(
                 )
 
             # Stochastic elite selection — matches MPPIPlanner.plan() (eval_mode=False)
-            chosen = torch.multinomial(scores, num_samples=1, replacement=True).squeeze(1)
-            idx_c = chosen[:, None, None, None].expand(batch_K, plan_length, 1, action_dim)
+            chosen = torch.multinomial(scores, num_samples=1, replacement=True).squeeze(
+                1
+            )
+            idx_c = chosen[:, None, None, None].expand(
+                batch_K, plan_length, 1, action_dim
+            )
             selected_acts = elite_acts.gather(2, idx_c).squeeze(2)  # (batch_K, T, A)
             post_noise = torch.randn(batch_K, action_dim, device=device)
             selected_acts = selected_acts + stds * post_noise.unsqueeze(1)
@@ -705,9 +723,11 @@ class GCAgent:
         # model predicts garbage → the agent never moves. Snapping each action
         # to the nearest cardinal × cell_size (exactly what env.step does) feeds
         # the model in-distribution actions. cell_size from the env.
-        self.snap_actions = bool(
-            plan_cfg.planner.get("snap_actions_to_grid", False)
-        ) if plan_cfg is not None else False
+        self.snap_actions = (
+            bool(plan_cfg.planner.get("snap_actions_to_grid", False))
+            if plan_cfg is not None
+            else False
+        )
         self.cell_size = float(getattr(env, "cell_size", 1) or 1)
 
         # Set default values if plan_cfg is None
@@ -806,12 +826,12 @@ class GCAgent:
         a_c = actions[:, 1, :]
         dom_r = a_r.abs() >= a_c.abs()
         snapped = torch.zeros_like(actions)
-        snapped[:, 0, :] = torch.where(
-            dom_r, torch.sign(a_r), torch.zeros_like(a_r)
-        ) * self.cell_size
-        snapped[:, 1, :] = torch.where(
-            ~dom_r, torch.sign(a_c), torch.zeros_like(a_c)
-        ) * self.cell_size
+        snapped[:, 0, :] = (
+            torch.where(dom_r, torch.sign(a_r), torch.zeros_like(a_r)) * self.cell_size
+        )
+        snapped[:, 1, :] = (
+            torch.where(~dom_r, torch.sign(a_c), torch.zeros_like(a_c)) * self.cell_size
+        )
         return snapped
 
     def decode_loc_to_pixel(self, predicted_encs, wall_x=None, door_y=None):
@@ -911,9 +931,9 @@ class ReprDistCollisionMPCObjective(ReprTargetDistMPCObjective):
         **kwargs,
     ):
         super().__init__(target_enc, sum_all_diffs=sum_all_diffs, **kwargs)
-        assert prober is not None and env is not None, (
-            "repr_dist_collision objective requires a loc prober and the env"
-        )
+        assert (
+            prober is not None and env is not None
+        ), "repr_dist_collision objective requires a loc prober and the env"
         self.prober = prober
         self.normalizer = env.normalizer
         self.cell_size = env.cell_size
@@ -970,9 +990,9 @@ class ProbePositionMPCObjective:
         sum_all_diffs: bool = True,
         **kwargs,
     ):
-        assert prober is not None and target_position is not None, (
-            "probe_pos objective needs a loc prober and a target_position"
-        )
+        assert (
+            prober is not None and target_position is not None
+        ), "probe_pos objective needs a loc prober and a target_position"
         self.prober = prober
         self.normalizer = normalizer
         self.sum_all_diffs = sum_all_diffs
@@ -1025,9 +1045,9 @@ class LearnedValueMPCObjective:
         target_position=None,
         **kwargs,
     ):
-        assert value_head is not None and target_enc is not None, (
-            "learned_value objective needs a trained value_head and a goal latent"
-        )
+        assert (
+            value_head is not None and target_enc is not None
+        ), "learned_value objective needs a trained value_head and a goal latent"
         self.value_head = value_head
         self.goal_enc = target_enc  # [1, C, 1, h, w]
         self.gamma = float(gamma)
@@ -1037,8 +1057,10 @@ class LearnedValueMPCObjective:
         self._pos_obj = None
         if self.blend_coeff > 0 and prober is not None and target_position is not None:
             self._pos_obj = ProbePositionMPCObjective(
-                target_position=target_position, prober=prober,
-                normalizer=normalizer, sum_all_diffs=sum_all_diffs,
+                target_position=target_position,
+                prober=prober,
+                normalizer=normalizer,
+                sum_all_diffs=sum_all_diffs,
             )
 
     def __call__(self, encodings: torch.Tensor, keepdims: bool = False) -> torch.Tensor:
@@ -1048,7 +1070,9 @@ class LearnedValueMPCObjective:
         cost = 1.0 - v  # minimise -> maximise value (cost-to-go in [0,1])
 
         if self.sum_all_diffs:
-            disc = self.gamma ** torch.arange(T, device=encodings.device, dtype=cost.dtype)
+            disc = self.gamma ** torch.arange(
+                T, device=encodings.device, dtype=cost.dtype
+            )
             out = (cost * disc.view(1, T)).sum(dim=1)  # [B]
         elif keepdims:
             out = cost  # [B, T]
@@ -1274,9 +1298,12 @@ class MPPIPlanner(Planner):
             plan_length = min(self.plan_length, steps_left)
 
         if self.action_prior is not None:
-            mean = self.action_prior.to(self.device).view(1, self.action_dim).expand(
-                plan_length, self.action_dim
-            ).clone()
+            mean = (
+                self.action_prior.to(self.device)
+                .view(1, self.action_dim)
+                .expand(plan_length, self.action_dim)
+                .clone()
+            )
         else:
             mean = torch.zeros(plan_length, self.action_dim, device=self.device)
         std = self.max_std * torch.ones(

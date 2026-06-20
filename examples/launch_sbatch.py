@@ -447,9 +447,20 @@ if __name__ == "__main__":
         "--example",
         type=str,
         required=True,
-        choices=["image_jepa", "video_jepa", "ac_video_jepa", "maze",
-                 "fintime", "ltsf", "eeg", "audio", "pointcloud", "gray_scott",
-                 "intuitive_physics","factors_of_variation"],
+        choices=[
+            "image_jepa",
+            "video_jepa",
+            "ac_video_jepa",
+            "maze",
+            "fintime",
+            "ltsf",
+            "eeg",
+            "audio",
+            "pointcloud",
+            "gray_scott",
+            "intuitive_physics",
+            "factors_of_variation",
+        ],
         help="Which example to run",
     )
     parser.add_argument(
@@ -496,9 +507,15 @@ if __name__ == "__main__":
     # Cluster / SLURM overrides (default to the values in SLURM_DEFAULTS;
     # can also be set via EBJEPA_SLURM_* env vars)
     parser.add_argument("--partition", type=str, help="SLURM partition (default: defq)")
-    parser.add_argument("--account", type=str, help="SLURM account (default: auto-detected per user via env.sh; omitted if unknown)")
+    parser.add_argument(
+        "--account",
+        type=str,
+        help="SLURM account (default: auto-detected per user via env.sh; omitted if unknown)",
+    )
     parser.add_argument("--cpus-per-task", type=int, help="CPUs per task (default: 8)")
-    parser.add_argument("--time-min", type=int, help="Job time limit in minutes (default: 120)")
+    parser.add_argument(
+        "--time-min", type=int, help="Job time limit in minutes (default: 120)"
+    )
     parser.add_argument("--gpus-per-node", type=int, help="GPUs per node (default: 1)")
 
     # Common overrides
