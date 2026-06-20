@@ -47,6 +47,7 @@ class DFAUSTDataset(Dataset):
         feature_type="hks",
         subjects=None,
         actions=None,
+        max_clips=None,
     ):
         """
         Args:
@@ -55,6 +56,7 @@ class DFAUSTDataset(Dataset):
             feature_type: "hks" (16 channels) or "xyz" (3 channels)
             subjects: List of subject IDs to include (None = all)
             actions: List of action names to include (None = all)
+            max_clips: Limit total number of clips (for overfitting experiments)
         """
         self.data_dir = Path(data_dir)
         self.seq_len = seq_len
@@ -96,6 +98,10 @@ class DFAUSTDataset(Dataset):
             n_clips = max(0, n_frames - seq_len + 1)
             for start in range(n_clips):
                 self.clips.append((seq_idx, start))
+
+        # Limit clips (for overfitting experiments)
+        if max_clips is not None:
+            self.clips = self.clips[:max_clips]
 
         # Load operators (for DiffusionNet)
         ops = np.load(self.data_dir / "operators.npz")

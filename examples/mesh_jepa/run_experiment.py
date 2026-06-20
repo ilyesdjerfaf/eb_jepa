@@ -182,6 +182,7 @@ def step_train(cfg, paths, feature_type, force=False):
             "num_workers": t["num_workers"],
             "train_subjects": t["train_subjects"],
             "test_subjects": t["test_subjects"],
+            "max_clips": t.get("max_clips", None),
         },
         "model": {
             "width": t["width"],

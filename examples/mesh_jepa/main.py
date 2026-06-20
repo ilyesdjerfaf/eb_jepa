@@ -88,6 +88,7 @@ def run(
         seq_len=cfg.data.seq_len,
         feature_type=cfg.data.feature_type,
         subjects=train_subjects,
+        max_clips=cfg.data.get("max_clips", None),
     )
     train_loader = DataLoader(
         train_set,
